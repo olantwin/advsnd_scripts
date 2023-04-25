@@ -106,14 +106,14 @@ def main():
     for event in ch:
         if not (counter % 100):
             print(f"{counter}/{N}")
-            link = event.Digi_TargetHits2MCPoints[0]
-            layers = 0
-            planes = 0
-            layers_seen = []
-            planes_seen = {}
-            taus = None
-            hits = {}
-            ignored = 0
+        link = event.Digi_TargetHits2MCPoints[0]
+        layers = 0
+        planes = 0
+        layers_seen = []
+        planes_seen = {}
+        taus = None
+        hits = {}
+        ignored = 0
         for index, hit in enumerate(event.Digi_advTargetHits):
             detID = hit.GetDetectorID()
             point = event.AdvTargetPoint[index]
@@ -138,7 +138,7 @@ def main():
                 h["absolute x"].Fill(x)
                 x_true = point.GetX()
                 h["x-x_true"].Fill((x - x_true) * cm / um)
-                y = hit.GetY()
+            y = hit.GetY()
             if y > -100:
                 h["absolute y"].Fill(y)
                 y_true = point.GetY()
@@ -198,10 +198,10 @@ def main():
                 assert tau_id == 1
                 if id in hits:
                     taus = hits[id]
-                    tau_start = array([track.GetStartX(), track.GetStartY(), track.GetStartZ()])
-                    tau_E = track.GetEnergy()
-                    tau_charge = charge(pdgid)
-                    MET += array([track.GetPx(), track.GetPy(), track.GetPz()])
+                tau_start = array([track.GetStartX(), track.GetStartY(), track.GetStartZ()])
+                tau_E = track.GetEnergy()
+                tau_charge = charge(pdgid)
+                MET += array([track.GetPx(), track.GetPy(), track.GetPz()])
             if track.GetMotherId() == 0:
                 primary_tracks += 1
                 if id in hits:
@@ -212,30 +212,30 @@ def main():
                 daughter_ids.append(id)
                 if id in hits:
                     secondary_tracks_seen += 1
-                    daughter_pids.append(pdgid)
-                    process = track.GetProcName()
-                    process_id = track.GetProcID()
-                    processes.append(process)
-                    process_ids.append(process_id)
+                daughter_pids.append(pdgid)
+                process = track.GetProcName()
+                process_id = track.GetProcID()
+                processes.append(process)
+                process_ids.append(process_id)
                 if process_id != 9:  # Delta ray
                     daughter_charge += charge(pdgid)
                 if charge(pdgid):
                     secondary_tracks_charged += 1
-                    daughter_start = array(
-                        [track.GetStartX(), track.GetStartY(), track.GetStartZ()]
-                    )
-                    daughter_dir = array([track.GetPx(), track.GetPy(), track.GetPz()])
-                    IP = norm(cross(tau_start - daughter_start, daughter_dir)) / norm(
-                        daughter_dir
-                    )
-                    h["IP"].Fill(IP*cm/um)
+                daughter_start = array(
+                    [track.GetStartX(), track.GetStartY(), track.GetStartZ()]
+                )
+                daughter_dir = array([track.GetPx(), track.GetPy(), track.GetPz()])
+                IP = norm(cross(tau_start - daughter_start, daughter_dir)) / norm(
+                    daughter_dir
+                )
+                h["IP"].Fill(IP*cm/um)
                 if charge(pdgid):
                     h["IP_charged"].Fill(IP*cm/um)
                     MET -= array([track.GetPx(), track.GetPy(), track.GetPz()])
         if tau_charge != daughter_charge:
             print(f"{tau_charge=}, {daughter_charge=}, {daughter_pids=}, {processes=}, {process_ids=}, {MET=}, {norm(MET)=}")
-            secondary_tracks = len(daughter_ids)
-            # print(daughter_ids)
+        secondary_tracks = len(daughter_ids)
+        # print(daughter_ids)
 
         h["multiplicity"].Fill(primary_tracks)
         h["multiplicity_seen"].Fill(primary_tracks_seen)
@@ -322,10 +322,10 @@ def main():
             c.SetLogz()
         else:
             h[key].Draw()
-            c.Draw()
-            c.SaveAs(key + ".pdf")
-            c.SaveAs(key + ".png")
-            hists.Close()
+        c.Draw()
+        c.SaveAs(key + ".pdf")
+        c.SaveAs(key + ".png")
+    hists.Close()
 
 if __name__ == '__main__':
     ROOT.gErrorIgnoreLevel = ROOT.kWarning
