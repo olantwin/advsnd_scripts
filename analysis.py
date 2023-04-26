@@ -11,19 +11,21 @@ import SNDLHCstyle
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Script for AdvSND analysis.')
+    parser = argparse.ArgumentParser(description="Script for AdvSND analysis.")
     parser.add_argument(
-        'inputfile',
-        help='''Simulation results to use as input. '''
-        '''Supports retrieving files from EOS via the XRootD protocol.''')
+        "inputfile",
+        help="""Simulation results to use as input. """
+        """Supports retrieving files from EOS via the XRootD protocol.""",
+    )
     parser.add_argument(
-        '-o',
-        '--outputfile',
-        default='hists.root',
-        help='''File to write the flux maps to. '''
-        '''Will be recreated if it already exists.''')
+        "-o",
+        "--outputfile",
+        default="hists.root",
+        help="""File to write the flux maps to. """
+        """Will be recreated if it already exists.""",
+    )
     args = parser.parse_args()
-    ch = ROOT.TChain('cbmsim')
+    ch = ROOT.TChain("cbmsim")
     ch.Add(args.inputfile)
     n = ch.GetEntries()
 
@@ -37,7 +39,9 @@ def main():
     ut.bookHist(h, "y-y_true", "#Delta y;y[um];", 100, -100, 100)
     ut.bookHist(h, "tau_planes", "planes per #tau;planes;", 41, -0.5, 40.5)
     ut.bookHist(h, "tau_layers", "layers per #tau;layers;", 21, -0.5, 20.5)
-    ut.bookHist(h, "hits_both_rel", "hits with both coordinates;% of total hits;", 20, 0, 1)
+    ut.bookHist(
+        h, "hits_both_rel", "hits with both coordinates;% of total hits;", 20, 0, 1
+    )
     ut.bookHist(
         h,
         "hits_only_asymmetry",
@@ -53,9 +57,21 @@ def main():
     ut.bookHist(h, "min_d_y", "min #Delta y_#tau;y[um];", 100, 0, 1000)
     ut.bookHist(h, "min_d_2", "min d_#tau;d[um];", 100, 0, 1000)
     ut.bookHist(h, "IP", "IP wrt. to #tau; IP[um];", 1000, 0, 1000)
-    ut.bookHist(h, "IP_charged", "IP wrt. to #tau (charged particles only); IP[um];", 1000, 0, 1000)
     ut.bookHist(
-        h, "multiplicity", "multiplicity at primary vertex;multiplicity;", 100, -0.5, 100.5
+        h,
+        "IP_charged",
+        "IP wrt. to #tau (charged particles only); IP[um];",
+        1000,
+        0,
+        1000,
+    )
+    ut.bookHist(
+        h,
+        "multiplicity",
+        "multiplicity at primary vertex;multiplicity;",
+        100,
+        -0.5,
+        100.5,
     )
     ut.bookHist(
         h,
@@ -186,7 +202,7 @@ def main():
         daughter_pids = []
         processes = []
         process_ids = []
-        MET = array([0.,0.,0.])
+        MET = array([0.0, 0.0, 0.0])
         for id, track in enumerate(event.MCTrack):
             pdgid = track.GetPdgCode()
             if id == 0:
@@ -198,7 +214,9 @@ def main():
                 assert tau_id == 1
                 if id in hits:
                     taus = hits[id]
-                tau_start = array([track.GetStartX(), track.GetStartY(), track.GetStartZ()])
+                tau_start = array(
+                    [track.GetStartX(), track.GetStartY(), track.GetStartZ()]
+                )
                 tau_E = track.GetEnergy()
                 tau_charge = charge(pdgid)
                 MET += array([track.GetPx(), track.GetPy(), track.GetPz()])
@@ -228,12 +246,14 @@ def main():
                 IP = norm(cross(tau_start - daughter_start, daughter_dir)) / norm(
                     daughter_dir
                 )
-                h["IP"].Fill(IP*cm/um)
+                h["IP"].Fill(IP * cm / um)
                 if charge(pdgid):
-                    h["IP_charged"].Fill(IP*cm/um)
+                    h["IP_charged"].Fill(IP * cm / um)
                     MET -= array([track.GetPx(), track.GetPy(), track.GetPz()])
         if tau_charge != daughter_charge:
-            print(f"{tau_charge=}, {daughter_charge=}, {daughter_pids=}, {processes=}, {process_ids=}, {MET=}, {norm(MET)=}")
+            print(
+                f"{tau_charge=}, {daughter_charge=}, {daughter_pids=}, {processes=}, {process_ids=}, {MET=}, {norm(MET)=}"
+            )
         secondary_tracks = len(daughter_ids)
         # print(daughter_ids)
 
@@ -327,7 +347,8 @@ def main():
         c.SaveAs(key + ".png")
     hists.Close()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     ROOT.gErrorIgnoreLevel = ROOT.kWarning
     ROOT.gROOT.SetBatch(True)
     main()
