@@ -3,11 +3,26 @@
 import argparse
 import ROOT
 import rootUtils as ut
-from shipunit import cm, um, keV, GeV
+from shipunit import cm, um, keV, GeV, mm
 from numpy import sqrt, hypot, array, cross, dot
 from numpy.linalg import norm
 from particle.pdgid import charge
 import SNDLHCstyle
+
+
+def track_separation(t1, t2, z):
+    t1_start = array([t1.GetStartX(), t1.GetStartY()])
+    t1_dir = array([t1.GetPx(), t1.GetPy()])
+    t1_dir /= t1.GetPz()
+    t2_start = array([t2.GetStartX(), t2.GetStartY()])
+    t2_dir = array([t2.GetPx(), t2.GetPy()])
+    t2_dir /= t2.GetPz()
+    return norm(
+        t1_start
+        + t1_dir * (z - t1.GetStartZ())
+        - t2_start
+        - t2_dir * (z - t2.GetStartZ())
+    )
 
 
 def main():
@@ -34,6 +49,11 @@ def main():
     ut.bookHist(h, "absolute x", "absolute x;x[cm];", 100, -50, 0)
     ut.bookHist(h, "absolute y", "absolute y;y[cm];", 100, 10, 60)
     ut.bookHist(h, "tau_dz", "tau flight distance;d[cm];", 100, 0, 10)
+    ut.bookHist(h, "separation_dz", "distance for 300 um separation (all primary tracks);d[mm];", 100, 0, 100)
+    ut.bookHist(h, "separation_dz_P", "distance for 300 um separation (all primary tracks);d[mm];P[GeV]", 100, 0, 100, 100, 0, 100)
+    ut.bookHist(h, "separation_dz_P_low", "distance for 300 um separation (all primary tracks);d[mm];P[GeV]", 100, 0, 100, 100, 0, 1)
+    ut.bookHist(h, "min_separation_dz", "distance for 300 um separation (best);d[mm];", 100, 0, 100)
+    ut.bookHist(h, "max_separation_dz", "distance for 300 um separation (worst);d[mm];", 100, 0, 100)
     ut.bookHist(h, "xy", ";x[cm];y[cm]", 100, -50, 0, 100, 10, 60)
     ut.bookHist(h, "x-x_true", "#Delta x;x[um];", 100, -100, 100)
     ut.bookHist(h, "y-y_true", "#Delta y;y[um];", 100, -100, 100)
@@ -203,6 +223,7 @@ def main():
         processes = []
         process_ids = []
         MET = array([0.0, 0.0, 0.0])
+        primaries = []
         for id, track in enumerate(event.MCTrack):
             pdgid = track.GetPdgCode()
             if id == 0:
@@ -226,6 +247,7 @@ def main():
                     primary_tracks_seen += 1
                 if charge(pdgid):
                     primary_tracks_charged += 1
+                primaries.append(track)
             elif track.GetMotherId() == 1:
                 daughter_ids.append(id)
                 if id in hits:
@@ -331,6 +353,41 @@ def main():
             )
             h["ignored"].Fill(ignored)
             counter += 1
+
+        for primary in primaries:
+            pdgid = primary.GetPdgCode()
+
+        taus = [t for t in primaries if t.GetPdgCode() in (-15, 15)]
+        if taus:
+            assert len(taus) == 1
+        else:
+            continue
+        tau = taus[0]
+        other_primaries = [t for t in primaries if t.GetPdgCode() not in (-15, 15)]
+        min_z = None
+        max_z = None
+        for p in other_primaries:
+            start_z =  p.GetStartZ()
+            z = start_z + 1 * mm
+            dist = track_separation(tau, p, z)
+            while dist < 300 * um:
+               z += 1 * mm
+               dist = track_separation(tau, p, z)
+            dz = z-start_z
+            if not min_z:
+                min_z = dz
+            elif dz < min_z:
+                min_z = dz
+            if not max_z:
+                max_z = dz
+            elif dz > max_z:
+                max_z = dz
+            h['separation_dz'].Fill(dz/mm)
+            h['separation_dz_P'].Fill(dz/mm, norm((p.GetPx(), p.GetPy(), p.GetPz())))
+            h['separation_dz_P_low'].Fill(dz/mm, norm((p.GetPx(), p.GetPy(), p.GetPz())))
+        h['min_separation_dz'].Fill(min_z/mm)
+        h['max_separation_dz'].Fill(max_z/mm)
+
 
 
     hists = ROOT.TFile.Open(args.outputfile, "recreate")
