@@ -12,7 +12,6 @@ from particle import Particle
 import SNDLHCstyle
 
 
-
 DETECTOR_TYPE = Enum("DETECTOR_TYPE", ["PIXEL", "STRIP"])
 
 
@@ -21,6 +20,9 @@ CONFIGS = {
     "CMS": {"NAME": "CMS strip", "THRESHOLD": 300 * um, "TYPE": DETECTOR_TYPE.STRIP},
     "MAPS": {"NAME": "future MAPS", "THRESHOLD": 25 * um, "TYPE": DETECTOR_TYPE.PIXEL},
 }
+
+
+DISTANCES = [7.5 * mm, 10 * mm, 12.5 * mm, 15 * mm]
 
 
 def track_separation(t1, t2, z, TYPE, **kwargs):
@@ -39,18 +41,24 @@ def track_separation(t1, t2, z, TYPE, **kwargs):
     return abs(delta[0]) if TYPE == DETECTOR_TYPE.STRIP else max(abs(delta))
 
 
-def separation_distance(t1, t2, THRESHOLD, **kwargs):
+def separation_distance(t1, t2, **kwargs):
     start_z = t1.GetStartZ()
     z = start_z + 1 * mm
-    dist = track_separation(t1, t2, z, **kwargs)
-    while dist < THRESHOLD:
+    while not are_separate(t1, t2, z=z, **kwargs):
         z += 1 * mm
-        dist = track_separation(t1, t2, z, **kwargs)
     return z - start_z
 
 
 def isolation_distance(track, other_tracks, **kwargs):
     return max(separation_distance(track, t, **kwargs) for t in other_tracks)
+
+
+def are_separate(t1, t2, THRESHOLD, **kwargs):
+    return track_separation(t1, t2, **kwargs) >= THRESHOLD
+
+
+def is_isolated(track, other_tracks, **kwargs):
+    return all(are_separate(track, t, **kwargs) for t in other_tracks)
 
 
 def main():
@@ -108,6 +116,23 @@ def main():
             0,
             2300,
         )
+        for distance in DISTANCES:
+            ut.bookHist(
+                h,
+                f"isolated_tracks_{key}_{distance}",
+                f"Isolated tracks per event at {distance} ({config['NAME']}); Isolated tracks;",
+                50,
+                0,
+                50,
+            )
+            ut.bookHist(
+                h,
+                f"isolated_track_momentum_{key}_{distance}",
+                f"Isolated track momentum at {distance} ({config['NAME']}); momentum [GeV/c];",
+                50,
+                0,
+                50,
+            )
     ut.bookHist(h, "xy", ";x[cm];y[cm]", 100, -50, 0, 100, 10, 60)
     ut.bookHist(h, "x-x_true", "#Delta x;x[um];", 100, -100, 100)
     ut.bookHist(h, "y-y_true", "#Delta y;y[um];", 100, -100, 100)
@@ -295,7 +320,6 @@ def main():
                 )
                 tau_E = track.GetEnergy()
                 tau = Particle.from_pdgid(pdgid)
-                tau_P = sqrt(tau_E ** 2 - (tau.mass * MeV) ** 2)
                 tau_charge = tau.charge
                 MET += array([track.GetPx(), track.GetPy(), track.GetPz()])
             if track.GetMotherId() == 0:
@@ -424,8 +448,29 @@ def main():
                 tau_isolation / mm, tau_dz / mm
             )
             h["tau_isolation_vs_tau_momentum_" + key].Fill(
-                tau_isolation / mm, tau_P / GeV
+                tau_isolation / mm, tau.GetP() / GeV
             )
+            for distance in DISTANCES:
+                all_primaries = primaries.copy()
+                isolated = 0
+                not_isolated_tracks = []
+                while True:
+                    try:
+                        primary = all_primaries.pop()
+                    except IndexError:
+                        # "pop from empty list"
+                        break
+                    z = primary.GetStartZ() + distance
+                    if is_isolated(
+                        primary, all_primaries + not_isolated_tracks, z=z, **config
+                    ):
+                        isolated += 1
+                        h[f"isolated_track_momentum_{key}_{distance}"].Fill(
+                            primary.GetP() / GeV
+                        )
+                    else:
+                        not_isolated_tracks.append(primary)
+                h[f"isolated_tracks_{key}_{distance}"].Fill(isolated)
 
     hists = ROOT.TFile.Open(args.outputfile, "recreate")
     for key in h:
