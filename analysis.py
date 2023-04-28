@@ -1,28 +1,55 @@
 #!/usr/bin/env python3
 
+from enum import Enum
 import argparse
 import ROOT
 import rootUtils as ut
 from shipunit import cm, um, keV, GeV, mm
-from numpy import sqrt, hypot, array, cross, dot
+from numpy import sqrt, hypot, array, cross
 from numpy.linalg import norm
 from particle.pdgid import charge
 import SNDLHCstyle
 
 
-def track_separation(t1, t2, z):
+
+DETECTOR_TYPE = Enum("DETECTOR_TYPE", ["PIXEL", "STRIP"])
+
+
+CONFIGS = {
+    "ALICE": {"NAME": "ALICE pixel", "THRESHOLD": 75 * um, "TYPE": DETECTOR_TYPE.PIXEL},
+    "CMS": {"NAME": "CMS strip", "THRESHOLD": 300 * um, "TYPE": DETECTOR_TYPE.STRIP},
+    "MAPS": {"NAME": "future MAPS", "THRESHOLD": 25 * um, "TYPE": DETECTOR_TYPE.PIXEL},
+}
+
+
+def track_separation(t1, t2, z, TYPE, **kwargs):
     t1_start = array([t1.GetStartX(), t1.GetStartY()])
     t1_dir = array([t1.GetPx(), t1.GetPy()])
     t1_dir /= t1.GetPz()
     t2_start = array([t2.GetStartX(), t2.GetStartY()])
     t2_dir = array([t2.GetPx(), t2.GetPy()])
     t2_dir /= t2.GetPz()
-    return norm(
+    delta = (
         t1_start
         + t1_dir * (z - t1.GetStartZ())
         - t2_start
         - t2_dir * (z - t2.GetStartZ())
     )
+    return abs(delta[0]) if TYPE == DETECTOR_TYPE.STRIP else max(abs(delta))
+
+
+def separation_distance(t1, t2, THRESHOLD, **kwargs):
+    start_z = t1.GetStartZ()
+    z = start_z + 1 * mm
+    dist = track_separation(t1, t2, z, **kwargs)
+    while dist < THRESHOLD:
+        z += 1 * mm
+        dist = track_separation(t1, t2, z, **kwargs)
+    return z - start_z
+
+
+def isolation_distance(track, other_tracks, **kwargs):
+    return max(separation_distance(track, t, **kwargs) for t in other_tracks)
 
 
 def main():
@@ -49,11 +76,61 @@ def main():
     ut.bookHist(h, "absolute x", "absolute x;x[cm];", 100, -50, 0)
     ut.bookHist(h, "absolute y", "absolute y;y[cm];", 100, 10, 60)
     ut.bookHist(h, "tau_dz", "tau flight distance;d[cm];", 100, 0, 10)
-    ut.bookHist(h, "separation_dz", "distance for 300 um separation (all primary tracks);d[mm];", 100, 0, 100)
-    ut.bookHist(h, "separation_dz_P", "distance for 300 um separation (all primary tracks);d[mm];P[GeV]", 100, 0, 100, 100, 0, 100)
-    ut.bookHist(h, "separation_dz_P_low", "distance for 300 um separation (all primary tracks);d[mm];P[GeV]", 100, 0, 100, 100, 0, 1)
-    ut.bookHist(h, "min_separation_dz", "distance for 300 um separation (best);d[mm];", 100, 0, 100)
-    ut.bookHist(h, "max_separation_dz", "distance for 300 um separation (worst);d[mm];", 100, 0, 100)
+    ut.bookHist(
+        h,
+        "separation_dz",
+        "distance for 300 um separation (all primary tracks);d[mm];",
+        100,
+        0,
+        100,
+    )
+    ut.bookHist(
+        h,
+        "separation_dz_P",
+        "distance for 300 um separation (all primary tracks);d[mm];P[GeV]",
+        100,
+        0,
+        100,
+        100,
+        0,
+        100,
+    )
+    ut.bookHist(
+        h,
+        "separation_dz_P_low",
+        "distance for 300 um separation (all primary tracks);d[mm];P[GeV]",
+        100,
+        0,
+        100,
+        100,
+        0,
+        1,
+    )
+    ut.bookHist(
+        h,
+        "min_separation_dz",
+        "distance for 300 um separation (best);d[mm];",
+        100,
+        0,
+        100,
+    )
+    ut.bookHist(
+        h,
+        "max_separation_dz",
+        "distance for 300 um separation (worst);d[mm];",
+        100,
+        0,
+        100,
+    )
+    for key, config in CONFIGS.items():
+        ut.bookHist(
+            h,
+            "tau_isolation_" + key,
+            f"Distance for isolation {config['NAME']};d[mm];",
+            100,
+            0,
+            100,
+        )
     ut.bookHist(h, "xy", ";x[cm];y[cm]", 100, -50, 0, 100, 10, 60)
     ut.bookHist(h, "x-x_true", "#Delta x;x[um];", 100, -100, 100)
     ut.bookHist(h, "y-y_true", "#Delta y;y[um];", 100, -100, 100)
@@ -277,7 +354,6 @@ def main():
                 f"{tau_charge=}, {daughter_charge=}, {daughter_pids=}, {processes=}, {process_ids=}, {MET=}, {norm(MET)=}"
             )
         secondary_tracks = len(daughter_ids)
-        # print(daughter_ids)
 
         h["multiplicity"].Fill(primary_tracks)
         h["multiplicity_seen"].Fill(primary_tracks_seen)
@@ -340,11 +416,6 @@ def main():
 
         hit_x_only = hit_x - hit_both
         hit_y_only = hit_y - hit_both
-        # print(f"Number of hits with x: {hit_x}")
-        # print(f"Number of hits with y: {hit_y}")
-        # print(f"Number of hits with x only: {hit_x_only}")
-        # print(f"Number of hits with y only: {hit_y_only}")
-        # print(f"Number of hits with two coordinates: {hit_both}")
         if hit_x and hit_y:
             h["hits_both_rel"].Fill(hit_both / (hit_x_only + hit_y_only + hit_both))
         if hit_x_only and hit_y_only:
@@ -364,31 +435,21 @@ def main():
             continue
         tau = taus[0]
         other_primaries = [t for t in primaries if t.GetPdgCode() not in (-15, 15)]
-        min_z = None
-        max_z = None
+        dzs = []
+        config = CONFIGS["CMS"]
         for p in other_primaries:
-            start_z =  p.GetStartZ()
-            z = start_z + 1 * mm
-            dist = track_separation(tau, p, z)
-            while dist < 300 * um:
-               z += 1 * mm
-               dist = track_separation(tau, p, z)
-            dz = z-start_z
-            if not min_z:
-                min_z = dz
-            elif dz < min_z:
-                min_z = dz
-            if not max_z:
-                max_z = dz
-            elif dz > max_z:
-                max_z = dz
-            h['separation_dz'].Fill(dz/mm)
-            h['separation_dz_P'].Fill(dz/mm, norm((p.GetPx(), p.GetPy(), p.GetPz())))
-            h['separation_dz_P_low'].Fill(dz/mm, norm((p.GetPx(), p.GetPy(), p.GetPz())))
-        h['min_separation_dz'].Fill(min_z/mm)
-        h['max_separation_dz'].Fill(max_z/mm)
-
-
+            dz = separation_distance(p, tau, **config)
+            dzs.append(dz)
+            h["separation_dz"].Fill(dz / mm)
+            h["separation_dz_P"].Fill(dz / mm, norm((p.GetPx(), p.GetPy(), p.GetPz())))
+            h["separation_dz_P_low"].Fill(
+                dz / mm, norm((p.GetPx(), p.GetPy(), p.GetPz()))
+            )
+        h["min_separation_dz"].Fill(min(dzs) / mm)
+        h["max_separation_dz"].Fill(max(dzs) / mm)
+        h["tau_isolation_" + "CMS"].Fill(
+            isolation_distance(tau, other_primaries, **config) / mm
+        )
 
     hists = ROOT.TFile.Open(args.outputfile, "recreate")
     for key in h:
