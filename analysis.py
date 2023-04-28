@@ -4,10 +4,11 @@ from enum import Enum
 import argparse
 import ROOT
 import rootUtils as ut
-from shipunit import cm, um, keV, GeV, mm
+from shipunit import cm, um, keV, GeV, mm, MeV
 from numpy import sqrt, hypot, array, cross
 from numpy.linalg import norm
 from particle.pdgid import charge
+from particle import Particle
 import SNDLHCstyle
 
 
@@ -76,60 +77,36 @@ def main():
     ut.bookHist(h, "absolute x", "absolute x;x[cm];", 100, -50, 0)
     ut.bookHist(h, "absolute y", "absolute y;y[cm];", 100, 10, 60)
     ut.bookHist(h, "tau_dz", "tau flight distance;d[cm];", 100, 0, 10)
-    ut.bookHist(
-        h,
-        "separation_dz",
-        "distance for 300 um separation (all primary tracks);d[mm];",
-        100,
-        0,
-        100,
-    )
-    ut.bookHist(
-        h,
-        "separation_dz_P",
-        "distance for 300 um separation (all primary tracks);d[mm];P[GeV]",
-        100,
-        0,
-        100,
-        100,
-        0,
-        100,
-    )
-    ut.bookHist(
-        h,
-        "separation_dz_P_low",
-        "distance for 300 um separation (all primary tracks);d[mm];P[GeV]",
-        100,
-        0,
-        100,
-        100,
-        0,
-        1,
-    )
-    ut.bookHist(
-        h,
-        "min_separation_dz",
-        "distance for 300 um separation (best);d[mm];",
-        100,
-        0,
-        100,
-    )
-    ut.bookHist(
-        h,
-        "max_separation_dz",
-        "distance for 300 um separation (worst);d[mm];",
-        100,
-        0,
-        100,
-    )
     for key, config in CONFIGS.items():
         ut.bookHist(
             h,
             "tau_isolation_" + key,
-            f"Distance for isolation {config['NAME']};d[mm];",
+            f"Distance for isolation ({config['NAME']});d [mm];",
             100,
             0,
             100,
+        )
+        ut.bookHist(
+            h,
+            "tau_isolation_vs_decay_length_" + key,
+            f"Distance for isolation vs. decay length ({config['NAME']});d [mm];decay length [mm]",
+            100,
+            0,
+            100,
+            100,
+            0,
+            100,
+        )
+        ut.bookHist(
+            h,
+            "tau_isolation_vs_tau_momentum_" + key,
+            f"Distance for isolation vs. momentum ({config['NAME']});d [mm];momentum [GeV/c]",
+            100,
+            0,
+            100,
+            100,
+            0,
+            2300,
         )
     ut.bookHist(h, "xy", ";x[cm];y[cm]", 100, -50, 0, 100, 10, 60)
     ut.bookHist(h, "x-x_true", "#Delta x;x[um];", 100, -100, 100)
@@ -293,6 +270,7 @@ def main():
         tau_start = array([None, None, None])
         daughter_start = array([None, None, None])
         tau_E = None
+        tau_dz = None
         nu_tau_E = None
         tau_charge = 0
         daughter_charge = 0
@@ -316,7 +294,9 @@ def main():
                     [track.GetStartX(), track.GetStartY(), track.GetStartZ()]
                 )
                 tau_E = track.GetEnergy()
-                tau_charge = charge(pdgid)
+                tau = Particle.from_pdgid(pdgid)
+                tau_P = sqrt(tau_E ** 2 - (tau.mass * MeV) ** 2)
+                tau_charge = tau.charge
                 MET += array([track.GetPx(), track.GetPy(), track.GetPz()])
             if track.GetMotherId() == 0:
                 primary_tracks += 1
@@ -364,7 +344,8 @@ def main():
         h["daughters_seen"].Fill(secondary_tracks_seen)
         h["daughters_charged"].Fill(secondary_tracks_charged)
         if daughter_start.any() and tau_start.any():
-            h["tau_dz"].Fill(daughter_start[2] - tau_start[2])
+            tau_dz = daughter_start[2] - tau_start[2]
+            h["tau_dz"].Fill(tau_dz)
         if tau_E:
             h["tau_E"].Fill(tau_E)
         if nu_tau_E:
@@ -435,21 +416,16 @@ def main():
             continue
         tau = taus[0]
         other_primaries = [t for t in primaries if t.GetPdgCode() not in (-15, 15)]
-        dzs = []
-        config = CONFIGS["CMS"]
-        for p in other_primaries:
-            dz = separation_distance(p, tau, **config)
-            dzs.append(dz)
-            h["separation_dz"].Fill(dz / mm)
-            h["separation_dz_P"].Fill(dz / mm, norm((p.GetPx(), p.GetPy(), p.GetPz())))
-            h["separation_dz_P_low"].Fill(
-                dz / mm, norm((p.GetPx(), p.GetPy(), p.GetPz()))
+        for key, config in CONFIGS.items():
+            tau_isolation = isolation_distance(tau, other_primaries, **config)
+            h["tau_isolation_" + key].Fill(tau_isolation / mm)
+            assert tau_dz
+            h["tau_isolation_vs_decay_length_" + key].Fill(
+                tau_isolation / mm, tau_dz / mm
             )
-        h["min_separation_dz"].Fill(min(dzs) / mm)
-        h["max_separation_dz"].Fill(max(dzs) / mm)
-        h["tau_isolation_" + "CMS"].Fill(
-            isolation_distance(tau, other_primaries, **config) / mm
-        )
+            h["tau_isolation_vs_tau_momentum_" + key].Fill(
+                tau_isolation / mm, tau_P / GeV
+            )
 
     hists = ROOT.TFile.Open(args.outputfile, "recreate")
     for key in h:
