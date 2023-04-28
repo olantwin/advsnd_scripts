@@ -89,7 +89,7 @@ def main():
         ut.bookHist(
             h,
             "tau_isolation_" + key,
-            f"Distance for isolation ({config['NAME']});d [mm];",
+            f"Distance for #tau isolation ({config['NAME']});d [mm];",
             100,
             0,
             100,
@@ -97,7 +97,7 @@ def main():
         ut.bookHist(
             h,
             "tau_isolation_vs_decay_length_" + key,
-            f"Distance for isolation vs. decay length ({config['NAME']});d [mm];decay length [mm]",
+            f"Distance for #tau isolation vs. decay length ({config['NAME']});d [mm];decay length [mm]",
             100,
             0,
             100,
@@ -108,7 +108,7 @@ def main():
         ut.bookHist(
             h,
             "tau_isolation_vs_tau_momentum_" + key,
-            f"Distance for isolation vs. momentum ({config['NAME']});d [mm];momentum [GeV/c]",
+            f"Distance for #tau isolation vs. #tau momentum ({config['NAME']});d [mm];momentum [GeV/c]",
             100,
             0,
             100,
@@ -120,7 +120,7 @@ def main():
             ut.bookHist(
                 h,
                 f"isolated_tracks_{key}_{distance}",
-                f"Isolated tracks per event at {distance} ({config['NAME']}); Isolated tracks;",
+                f"Isolated tracks per event at {distance} [cm] ({config['NAME']}); Isolated tracks;",
                 50,
                 0,
                 50,
@@ -128,7 +128,7 @@ def main():
             ut.bookHist(
                 h,
                 f"isolated_track_momentum_{key}_{distance}",
-                f"Isolated track momentum at {distance} ({config['NAME']}); momentum [GeV/c];",
+                f"Isolated track momentum at {distance} [cm] ({config['NAME']}); momentum [GeV/c];",
                 50,
                 0,
                 50,
