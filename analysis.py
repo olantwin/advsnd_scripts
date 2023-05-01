@@ -133,6 +133,14 @@ def main():
                 0,
                 50,
             )
+            ut.bookHist(
+                h,
+                f"isolated_track_charge_{key}_{distance}",
+                f"Isolated track charge at {distance} [cm] ({config['NAME']}); charge;",
+                5,
+                -2.5,
+                2.5,
+            )
     ut.bookHist(h, "xy", ";x[cm];y[cm]", 100, -50, 0, 100, 10, 60)
     ut.bookHist(h, "x-x_true", "#Delta x;x[um];", 100, -100, 100)
     ut.bookHist(h, "y-y_true", "#Delta y;y[um];", 100, -100, 100)
@@ -328,7 +336,7 @@ def main():
                     primary_tracks_seen += 1
                 if charge(pdgid):
                     primary_tracks_charged += 1
-                primaries.append(track)
+                    primaries.append(track)
             elif track.GetMotherId() == 1:
                 daughter_ids.append(id)
                 if id in hits:
@@ -430,9 +438,6 @@ def main():
             h["ignored"].Fill(ignored)
             counter += 1
 
-        for primary in primaries:
-            pdgid = primary.GetPdgCode()
-
         taus = [t for t in primaries if t.GetPdgCode() in (-15, 15)]
         if taus:
             assert len(taus) == 1
@@ -441,7 +446,7 @@ def main():
         tau = taus[0]
         other_primaries = [t for t in primaries if t.GetPdgCode() not in (-15, 15)]
         for key, config in CONFIGS.items():
-            tau_isolation = isolation_distance(tau, other_primaries, **config)
+            tau_isolation = isolation_distance(tau, other_primaries, **config) if other_primaries else 0
             h["tau_isolation_" + key].Fill(tau_isolation / mm)
             assert tau_dz
             h["tau_isolation_vs_decay_length_" + key].Fill(
@@ -468,6 +473,8 @@ def main():
                         h[f"isolated_track_momentum_{key}_{distance}"].Fill(
                             primary.GetP() / GeV
                         )
+                        h[f"isolated_track_charge_{key}_{distance}"].Fill(
+                            charge(primary.GetPdgCode()))
                     else:
                         not_isolated_tracks.append(primary)
                 h[f"isolated_tracks_{key}_{distance}"].Fill(isolated)
