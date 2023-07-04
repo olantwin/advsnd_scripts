@@ -290,10 +290,6 @@ def main():
                     else:
                         assert False
                 if pdgID in (-15, 15):
-                    if not first_tau_plane:
-                        first_tau_plane = plane
-                    if not first_tau_layer:
-                        first_tau_layer = station
                     if station in layers_seen:
                         if not plane in planes_seen[station]:
                             layers += 1
