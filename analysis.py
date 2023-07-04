@@ -238,61 +238,69 @@ def main():
         taus = None
         hits = {}
         ignored = 0
-        for index, hit in enumerate(event.Digi_advTargetHits):
+        for hit in event.Digi_advTargetHits:
             detID = hit.GetDetectorID()
-            point = event.AdvTargetPoint[index]
-            # if not point.GetEnergyLoss() > 0.:
-            if point.GetEnergyLoss() < 40 * keV:
-                ignored += 1
-                continue
-            h["ELoss"].Fill(point.GetEnergyLoss() * GeV / keV)
-            pdgID = point.PdgCode()
-            plane = point.GetPlane()
-            station = point.GetStation()
-            trackID = point.GetTrackID()
-            px = point.GetPx()
-            py = point.GetPy()
-            pz = point.GetPz()
-            pt = hypot(px, py)
-            P = hypot(pz, pt)
-            h["P"].Fill(P)
-            h["P_low"].Fill(P)
-            x = hit.GetX()
-            if x > -100:
-                h["absolute x"].Fill(x)
-                x_true = point.GetX()
-                h["x-x_true"].Fill((x - x_true) * cm / um)
-            y = hit.GetY()
-            if y > -100:
-                h["absolute y"].Fill(y)
-                y_true = point.GetY()
-                h["y-y_true"].Fill((y - y_true) * cm / um)
-            if trackID not in hits:
-                hits[trackID] = {}
-            if station in hits[trackID]:
-                if hits[trackID][station][0] is None:
-                    if x > -100:
-                        hits[trackID][station][0] = x
-                elif hits[trackID][station][1] is None:
-                    if y > -100:
-                        hits[trackID][station][1] = y
-            else:
+            wlist = link.wList(detID)
+            point_indices = [index for index,_ in wlist]
+            for index in point_indices:
+                point = event.AdvTargetPoint[index]
+
+                # if not point.GetEnergyLoss() > 0.:
+                if point.GetEnergyLoss() < 40 * keV:
+                    ignored += 1
+                    continue
+                h["ELoss"].Fill(point.GetEnergyLoss() * GeV / keV)
+                pdgID = point.PdgCode()
+                plane = point.GetPlane()
+                station = point.GetStation()
+                trackID = point.GetTrackID()
+                px = point.GetPx()
+                py = point.GetPy()
+                pz = point.GetPz()
+                pt = hypot(px, py)
+                P = hypot(pz, pt)
+                h["P"].Fill(P)
+                h["P_low"].Fill(P)
+                x = hit.GetX()
                 if x > -100:
-                    hits[trackID][station] = [x, None]
-                elif y > -100:
-                    hits[trackID][station] = [None, y]
+                    h["absolute x"].Fill(x)
+                    x_true = point.GetX()
+                    h["x-x_true"].Fill((x - x_true) * cm / um)
+                y = hit.GetY()
+                if y > -100:
+                    h["absolute y"].Fill(y)
+                    y_true = point.GetY()
+                    h["y-y_true"].Fill((y - y_true) * cm / um)
+                if trackID not in hits:
+                    hits[trackID] = {}
+                if station in hits[trackID]:
+                    if hits[trackID][station][0] is None:
+                        if x > -100:
+                            hits[trackID][station][0] = x
+                    elif hits[trackID][station][1] is None:
+                        if y > -100:
+                            hits[trackID][station][1] = y
                 else:
-                    assert False
-            if pdgID in (-15, 15):
-                if station in layers_seen:
-                    if not plane in planes_seen[station]:
-                        layers += 1
+                    if x > -100:
+                        hits[trackID][station] = [x, None]
+                    elif y > -100:
+                        hits[trackID][station] = [None, y]
+                    else:
+                        assert False
+                if pdgID in (-15, 15):
+                    if not first_tau_plane:
+                        first_tau_plane = plane
+                    if not first_tau_layer:
+                        first_tau_layer = station
+                    if station in layers_seen:
+                        if not plane in planes_seen[station]:
+                            layers += 1
+                            planes += 1
+                            planes_seen[station].append(plane)
+                    else:
+                        layers_seen.append(station)
+                        planes_seen[station] = [plane]
                         planes += 1
-                        planes_seen[station].append(plane)
-                else:
-                    layers_seen.append(station)
-                    planes_seen[station] = [plane]
-                    planes += 1
 
         primary_tracks = 0
         primary_tracks_seen = 0
