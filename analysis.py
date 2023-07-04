@@ -224,6 +224,7 @@ def main():
     ut.bookHist(h, "tau_E", "#tau energy; E [GeV/c^{2}];", 100, 0, 2500)
     ut.bookHist(h, "nu_tau_E", "#nu_{#tau} energy; E [GeV/c^{2}];", 100, 0, 2500)
     ut.bookHist(h, "ELoss", "Energy loss; E [keV/c^{2}];", 1000, 0, 1000)
+    ut.bookHist(h, "hits_per_det", "Hits per strip; n;", 20, 0.5, 20.5)
 
     counter = 0
     N = ch.GetEntries()
@@ -241,6 +242,7 @@ def main():
         for hit in event.Digi_advTargetHits:
             detID = hit.GetDetectorID()
             wlist = link.wList(detID)
+            h["hits_per_det"].Fill(len(wlist))
             point_indices = [index for index,_ in wlist]
             for index in point_indices:
                 point = event.AdvTargetPoint[index]
