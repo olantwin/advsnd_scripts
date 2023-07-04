@@ -75,6 +75,7 @@ def main():
         help="""File to write the flux maps to. """
         """Will be recreated if it already exists.""",
     )
+    parser.add_argument("--plots", help="Make nice plots as pdf and png", action='store_true')
     args = parser.parse_args()
     ch = ROOT.TChain("cbmsim")
     ch.Add(args.inputfile)
@@ -482,15 +483,16 @@ def main():
     hists = ROOT.TFile.Open(args.outputfile, "recreate")
     for key in h:
         h[key].Write()
-        c = ROOT.TCanvas("canvas_" + key, key, 800, 600)
-        if isinstance(h[key], ROOT.TH2):
-            h[key].Draw("Colz")
-            c.SetLogz()
-        else:
-            h[key].Draw()
-        c.Draw()
-        c.SaveAs(key + ".pdf")
-        c.SaveAs(key + ".png")
+        if args.plots:
+            c = ROOT.TCanvas("canvas_" + key, key, 800, 600)
+            if isinstance(h[key], ROOT.TH2):
+                h[key].Draw("Colz")
+                c.SetLogz()
+            else:
+                h[key].Draw()
+            c.Draw()
+            c.SaveAs("plots/" + key + ".pdf")
+            c.SaveAs("plots/" + key + ".png")
     hists.Close()
 
 
