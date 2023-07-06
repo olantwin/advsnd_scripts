@@ -368,13 +368,13 @@ def main():
             h["fake_isolated_hits"].Fill(sum(fake_isolated_hits.values()))
             h["true_isolated_hits"].Fill(sum(true_isolated_hits.values()))
             if first_tau_plane:
-                for plane in range(first_tau_plane, first_tau_plane + 10):
+                for plane in range(first_tau_plane, first_tau_plane + 20):
                     if plane in isolated_hits:
-                        h["isolated_hits_after_tau_plane"].Fill(isolated_hits[plane], plane)
+                        h["isolated_hits_after_tau_plane"].Fill(isolated_hits[plane], plane - first_tau_plane)
                         if plane in fake_isolated_hits:
-                            h["fake_isolated_hits_after_tau_plane"].Fill(fake_isolated_hits[plane], plane)
+                            h["fake_isolated_hits_after_tau_plane"].Fill(fake_isolated_hits[plane], plane - first_tau_plane)
                         if plane in true_isolated_hits:
-                            h["true_isolated_hits_after_tau_plane"].Fill(true_isolated_hits[plane], plane)
+                            h["true_isolated_hits_after_tau_plane"].Fill(true_isolated_hits[plane], plane - first_tau_plane)
 
 
         primary_tracks = 0
