@@ -184,8 +184,8 @@ def main():
     ut.bookHist(h, "tau_E", "#tau energy; E [GeV/c^{2}];", 100, 0, 2500)
     ut.bookHist(h, "nu_tau_E", "#nu_{#tau} energy; E [GeV/c^{2}];", 100, 0, 2500)
     if args.digi:
-        ut.bookHist(h, "absolute x", "absolute x;x[cm];", 100, -50, 0)
-        ut.bookHist(h, "absolute y", "absolute y;y[cm];", 100, 10, 60)
+        ut.bookHist(h, "absolute_x", "absolute x;x[cm];", 100, -50, 0)
+        ut.bookHist(h, "absolute_y", "absolute y;y[cm];", 100, 10, 60)
         ut.bookHist(h, "xy", ";x[cm];y[cm]", 100, -50, 0, 100, 10, 60)
         ut.bookHist(h, "x-x_true", "#Delta x;x[um];", 100, -100, 100)
         ut.bookHist(h, "y-y_true", "#Delta y;y[um];", 100, -100, 100)
@@ -289,12 +289,12 @@ def main():
                     h["P_low"].Fill(P)
                     x = hit.GetX()
                     if x > -100:
-                        h["absolute x"].Fill(x)
+                        h["absolute_x"].Fill(x)
                         x_true = point.GetX()
                         h["x-x_true"].Fill((x - x_true) * cm / um)
                     y = hit.GetY()
                     if y > -100:
-                        h["absolute y"].Fill(y)
+                        h["absolute_y"].Fill(y)
                         y_true = point.GetY()
                         h["y-y_true"].Fill((y - y_true) * cm / um)
                     if trackID not in hits:
