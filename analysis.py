@@ -200,6 +200,7 @@ def main():
         ut.bookHist(h, "true_isolated_hits_after_tau_plane", "Isolated hits per event (true); n; plane after #tau", 10, 0.5, 10.5, 20, -0.5, 19.5)
         ut.bookHist(h, "fake_isolated_hits_after_tau_plane", "Isolated hits per event (fake); n; plane after #tau", 10, 0.5, 10.5, 20, -0.5, 19.5)
         ut.bookHist(h, "tau_isolated_hits_after_tau_plane", "Isolated #tau hits per event (true); plane after #tau", 20, -0.5, 19.5)
+        ut.bookHist(h, "hits_before_tau_plane", "Hits per event before #tau; plane relative to #tau", 20, -20.5, -0.5)
         ut.bookHist(h, "hits_per_det_after_tau_layer", "Hits per strip; n; layer after #tau", 20, 0.5, 20.5, 10, -0.5, 9.5)
         ut.bookHist(h, "hits_per_det_after_tau_plane", "Hits per strip; n; plane after #tau", 20, 0.5, 20.5, 10, -0.5, 9.5)
         ut.bookHist(
@@ -373,6 +374,8 @@ def main():
                             fake_isolated_hits[absolute_plane] = 1
                         else:
                             fake_isolated_hits[absolute_plane] += 1
+                if first_tau_plane and absolute_plane < first_tau_plane:
+                    h["hits_before_tau_plane"].Fill(absolute_plane - first_tau_plane)
             h["isolated_hits"].Fill(sum(isolated_hits.values()))
             h["fake_isolated_hits"].Fill(sum(fake_isolated_hits.values()))
             h["true_isolated_hits"].Fill(sum(true_isolated_hits.values()))
