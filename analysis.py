@@ -64,9 +64,10 @@ def is_isolated(track, other_tracks, **kwargs):
 def main():
     parser = argparse.ArgumentParser(description="Script for AdvSND analysis.")
     parser.add_argument(
-        "inputfile",
+        "inputfiles",
         help="""Simulation results to use as input. """
-        """Supports retrieving files from EOS via the XRootD protocol.""",
+        """Supports retrieving files from EOS via the XRootD protocol. Several files can be specified""",
+        nargs='+'
     )
     parser.add_argument(
         "-o",
@@ -80,7 +81,8 @@ def main():
     parser.add_argument("--plots", help="Make nice plots as pdf and png", action='store_true')
     args = parser.parse_args()
     ch = ROOT.TChain("cbmsim")
-    ch.Add(args.inputfile)
+    for inputfile in args.inputfiles:
+        ch.Add(inputfile)
     n = ch.GetEntries()
 
     SNDLHCstyle.init_style()
