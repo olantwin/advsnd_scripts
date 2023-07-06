@@ -199,6 +199,7 @@ def main():
         ut.bookHist(h, "isolated_hits_after_tau_plane", "Isolated hits per event; n; plane after #tau", 10, 0.5, 10.5, 20, -0.5, 19.5)
         ut.bookHist(h, "true_isolated_hits_after_tau_plane", "Isolated hits per event (true); n; plane after #tau", 10, 0.5, 10.5, 20, -0.5, 19.5)
         ut.bookHist(h, "fake_isolated_hits_after_tau_plane", "Isolated hits per event (fake); n; plane after #tau", 10, 0.5, 10.5, 20, -0.5, 19.5)
+        ut.bookHist(h, "tau_isolated_hits_after_tau_plane", "Isolated #tau hits per event (true); plane after #tau", 20, -0.5, 19.5)
         ut.bookHist(h, "hits_per_det_after_tau_layer", "Hits per strip; n; layer after #tau", 20, 0.5, 20.5, 10, -0.5, 9.5)
         ut.bookHist(h, "hits_per_det_after_tau_plane", "Hits per strip; n; plane after #tau", 20, 0.5, 20.5, 10, -0.5, 9.5)
         ut.bookHist(
@@ -257,6 +258,7 @@ def main():
             first_tau_plane = None
             link = event.Digi_TargetHits2MCPoints[0]
             detIDs = {}
+            tau_detIDs = []
             strips = {}  # indexed by sensor
             for hit in event.Digi_advTargetHits:
                 station = None
@@ -314,6 +316,7 @@ def main():
                         else:
                             assert False
                     if pdgID in (-15, 15):
+                        tau_detIDs.append(detID)
                         if not first_tau_plane:
                             first_tau_plane = absolute_plane
                         if not first_tau_layer:
@@ -341,6 +344,7 @@ def main():
             isolated_hits = {}
             true_isolated_hits = {}
             fake_isolated_hits = {}
+            tau_isolated_hits = {}
             for detID in detIDs:
                 station = floor(detID >> 15)
                 plane = (detID >> 14) % 2
@@ -359,6 +363,11 @@ def main():
                             true_isolated_hits[absolute_plane] = 1
                         else:
                             true_isolated_hits[absolute_plane] += 1
+                        if detID in tau_detIDs:
+                            if absolute_plane not in tau_isolated_hits:
+                                tau_isolated_hits[absolute_plane] = 1
+                            else:
+                                tau_isolated_hits[absolute_plane] += 1
                     else:
                         if absolute_plane not in fake_isolated_hits:
                             fake_isolated_hits[absolute_plane] = 1
@@ -375,6 +384,8 @@ def main():
                             h["fake_isolated_hits_after_tau_plane"].Fill(fake_isolated_hits[plane], plane - first_tau_plane)
                         if plane in true_isolated_hits:
                             h["true_isolated_hits_after_tau_plane"].Fill(true_isolated_hits[plane], plane - first_tau_plane)
+                        if plane in tau_isolated_hits:
+                            h["tau_isolated_hits_after_tau_plane"].Fill(tau_isolated_hits[plane])
 
 
         primary_tracks = 0
