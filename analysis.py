@@ -201,7 +201,7 @@ def main():
         ut.bookHist(h, "isolated_hits_after_tau_plane", "Isolated hits per event; n; plane after #tau", 10, 0.5, 10.5, 20, -0.5, 19.5)
         ut.bookHist(h, "true_isolated_hits_after_tau_plane", "Isolated hits per event (true); n; plane after #tau", 10, 0.5, 10.5, 20, -0.5, 19.5)
         ut.bookHist(h, "fake_isolated_hits_after_tau_plane", "Isolated hits per event (fake); n; plane after #tau", 10, 0.5, 10.5, 20, -0.5, 19.5)
-        ut.bookHist(h, "tau_isolated_hits_after_tau_plane", "Isolated #tau hits per event (true); plane after #tau", 20, -0.5, 19.5)
+        ut.bookHist(h, "tau_isolated_hits_after_tau_plane", "Isolated #tau hits (true); plane after #tau", 20, -0.5, 19.5)
         ut.bookHist(h, "hits_before_tau_plane", "Hits per event before #tau; plane relative to #tau", 20, -20.5, -0.5)
         ut.bookHist(h, "hits_per_det_after_tau_layer", "Hits per strip; n; layer after #tau", 20, 0.5, 20.5, 10, -0.5, 9.5)
         ut.bookHist(h, "hits_per_det_after_tau_plane", "Hits per strip; n; plane after #tau", 20, 0.5, 20.5, 10, -0.5, 9.5)
@@ -356,11 +356,12 @@ def main():
             for detID in detIDs:
                 station = floor(detID >> 15)
                 plane = (detID >> 14) % 2
+                strip = detID % 768
                 absolute_plane = int(plane + station * 2)
                 if (
-                        (detID % 768 == 0) or ((detID - 1) not in detIDs)
+                        (strip == 0) or ((detID - 1) not in detIDs)
                 ) and (
-                    (detID % 768 == 767) or ((detID + 1) not in detIDs)
+                    (strip == 767) or ((detID + 1) not in detIDs)
                 ):
                     if absolute_plane not in isolated_hits:
                         isolated_hits[absolute_plane] = 1
@@ -598,6 +599,7 @@ def main():
     for key in h:
         h[key].Write()
         if args.plots:
+            ROOT.gStyle.SetOptStat(111110)
             c = ROOT.TCanvas("canvas_" + key, key, 800, 600)
             if isinstance(h[key], ROOT.TH2):
                 h[key].Draw("Colz")
