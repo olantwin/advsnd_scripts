@@ -5,7 +5,8 @@ import argparse
 import ROOT
 import rootUtils as ut
 from shipunit import cm, um, keV, GeV, mm, MeV
-from numpy import sqrt, hypot, array, cross, floor
+from numpy import sqrt, hypot, array, cross, floor, zeros
+from itertools import groupby
 from numpy.linalg import norm
 from particle.pdgid import charge
 from particle import Particle
@@ -193,6 +194,7 @@ def main():
         ut.bookHist(h, "P", "Momentum at hit; P [GeV];", 100, 0, 100)
         ut.bookHist(h, "P_low", "Momentum at hit; P [GeV];", 100, 0, 0.1)
         ut.bookHist(h, "hits_per_det", "Hits per strip; n;", 20, 0.5, 20.5)
+        ut.bookHist(h, "adjacent_hits", "Adjacent hits; n;", 20, 0.5, 20.5)
         ut.bookHist(h, "isolated_hits", "Isolated hits per event; n;", 100, 0.5, 100.5)
         ut.bookHist(h, "true_isolated_hits", "Isolated hits per event (true); n;", 100, 0.5, 100.5)
         ut.bookHist(h, "fake_isolated_hits", "Isolated hits per event (fake); n;", 100, 0.5, 100.5)
@@ -260,7 +262,7 @@ def main():
             link = event.Digi_TargetHits2MCPoints[0]
             detIDs = {}
             tau_detIDs = []
-            strips = {}  # indexed by sensor
+            hitmap = {}  # indexed by sensor (detID // 768)
             for hit in event.Digi_advTargetHits:
                 station = None
                 plane = None
@@ -283,6 +285,11 @@ def main():
                     station = point.GetStation()
                     absolute_plane = plane + station * 2
                     trackID = point.GetTrackID()
+                    sensor = detID // 768
+                    strip = detID % 768
+                    if sensor not in hitmap:
+                        hitmap[sensor] = zeros(768)
+                    hitmap[sensor][strip] = 1
                     px = point.GetPx()
                     py = point.GetPy()
                     pz = point.GetPz()
@@ -389,6 +396,10 @@ def main():
                             h["true_isolated_hits_after_tau_plane"].Fill(true_isolated_hits[plane], plane - first_tau_plane)
                         if plane in tau_isolated_hits:
                             h["tau_isolated_hits_after_tau_plane"].Fill(tau_isolated_hits[plane])
+            for sensor, hs in hitmap.items():
+                adjacents = [sum(g) for k, g in groupby(hs) if k]
+                for cluster in adjacents:
+                    h["adjacent_hits"].Fill(cluster)
 
 
         primary_tracks = 0
