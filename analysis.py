@@ -4,7 +4,7 @@ from enum import Enum
 import argparse
 import ROOT
 import rootUtils as ut
-from shipunit import cm, um, keV, GeV, mm, MeV
+from shipunit import cm, um, keV, GeV, mm
 from numpy import sqrt, hypot, array, cross, floor, zeros
 from itertools import groupby
 from numpy.linalg import norm
@@ -68,7 +68,7 @@ def main():
         "inputfiles",
         help="""Simulation results to use as input. """
         """Supports retrieving files from EOS via the XRootD protocol. Several files can be specified""",
-        nargs='+'
+        nargs="+",
     )
     parser.add_argument(
         "-o",
@@ -77,14 +77,21 @@ def main():
         help="""File to write the flux maps to. """
         """Will be recreated if it already exists.""",
     )
-    parser.add_argument("--digi", help="Run studies using digitisation", action='store_true')
-    parser.add_argument("--truth", help="Run truth study comparing different scenarii", action='store_true')
-    parser.add_argument("--plots", help="Make nice plots as pdf and png", action='store_true')
+    parser.add_argument(
+        "--digi", help="Run studies using digitisation", action="store_true"
+    )
+    parser.add_argument(
+        "--truth",
+        help="Run truth study comparing different scenarii",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--plots", help="Make nice plots as pdf and png", action="store_true"
+    )
     args = parser.parse_args()
     ch = ROOT.TChain("cbmsim")
     for inputfile in args.inputfiles:
         ch.Add(inputfile)
-    n = ch.GetEntries()
 
     SNDLHCstyle.init_style()
     h = {}
@@ -196,15 +203,93 @@ def main():
         ut.bookHist(h, "hits_per_det", "Hits per strip; n;", 20, 0.5, 20.5)
         ut.bookHist(h, "adjacent_hits", "Adjacent hits; n;", 20, 0.5, 20.5)
         ut.bookHist(h, "isolated_hits", "Isolated hits per event; n;", 100, 0.5, 100.5)
-        ut.bookHist(h, "true_isolated_hits", "Isolated hits per event (true); n;", 100, 0.5, 100.5)
-        ut.bookHist(h, "fake_isolated_hits", "Isolated hits per event (fake); n;", 100, 0.5, 100.5)
-        ut.bookHist(h, "isolated_hits_after_tau_plane", "Isolated hits per event; n; plane after #tau", 10, 0.5, 10.5, 20, -0.5, 19.5)
-        ut.bookHist(h, "true_isolated_hits_after_tau_plane", "Isolated hits per event (true); n; plane after #tau", 10, 0.5, 10.5, 20, -0.5, 19.5)
-        ut.bookHist(h, "fake_isolated_hits_after_tau_plane", "Isolated hits per event (fake); n; plane after #tau", 10, 0.5, 10.5, 20, -0.5, 19.5)
-        ut.bookHist(h, "tau_isolated_hits_after_tau_plane", "Isolated #tau hits (true); plane after #tau", 20, -0.5, 19.5)
-        ut.bookHist(h, "hits_before_tau_plane", "Hits per event before #tau; plane relative to #tau", 20, -20.5, -0.5)
-        ut.bookHist(h, "hits_per_det_after_tau_layer", "Hits per strip; n; layer after #tau", 20, 0.5, 20.5, 10, -0.5, 9.5)
-        ut.bookHist(h, "hits_per_det_after_tau_plane", "Hits per strip; n; plane after #tau", 20, 0.5, 20.5, 10, -0.5, 9.5)
+        ut.bookHist(
+            h,
+            "true_isolated_hits",
+            "Isolated hits per event (true); n;",
+            100,
+            0.5,
+            100.5,
+        )
+        ut.bookHist(
+            h,
+            "fake_isolated_hits",
+            "Isolated hits per event (fake); n;",
+            100,
+            0.5,
+            100.5,
+        )
+        ut.bookHist(
+            h,
+            "isolated_hits_after_tau_plane",
+            "Isolated hits per event; n; plane after #tau",
+            10,
+            0.5,
+            10.5,
+            20,
+            -0.5,
+            19.5,
+        )
+        ut.bookHist(
+            h,
+            "true_isolated_hits_after_tau_plane",
+            "Isolated hits per event (true); n; plane after #tau",
+            10,
+            0.5,
+            10.5,
+            20,
+            -0.5,
+            19.5,
+        )
+        ut.bookHist(
+            h,
+            "fake_isolated_hits_after_tau_plane",
+            "Isolated hits per event (fake); n; plane after #tau",
+            10,
+            0.5,
+            10.5,
+            20,
+            -0.5,
+            19.5,
+        )
+        ut.bookHist(
+            h,
+            "tau_isolated_hits_after_tau_plane",
+            "Isolated #tau hits (true); plane after #tau",
+            20,
+            -0.5,
+            19.5,
+        )
+        ut.bookHist(
+            h,
+            "hits_before_tau_plane",
+            "Hits per event before #tau; plane relative to #tau",
+            20,
+            -20.5,
+            -0.5,
+        )
+        ut.bookHist(
+            h,
+            "hits_per_det_after_tau_layer",
+            "Hits per strip; n; layer after #tau",
+            20,
+            0.5,
+            20.5,
+            10,
+            -0.5,
+            9.5,
+        )
+        ut.bookHist(
+            h,
+            "hits_per_det_after_tau_plane",
+            "Hits per strip; n; plane after #tau",
+            20,
+            0.5,
+            20.5,
+            10,
+            -0.5,
+            9.5,
+        )
         ut.bookHist(
             h, "ignored", "Hits with no energy deposit per event;count;", 20, -0.5, 20.5
         )
@@ -271,7 +356,7 @@ def main():
                 detIDs[detID] = len(wlist)
                 h["hits_per_det"].Fill(len(wlist))
                 assert len(wlist), f"{detID=}"
-                point_indices = [index for index,_ in wlist]
+                point_indices = [index for index, _ in wlist]
                 for index in point_indices:
                     point = event.AdvTargetPoint[index]
 
@@ -298,12 +383,12 @@ def main():
                     h["P"].Fill(P)
                     h["P_low"].Fill(P)
                     x = hit.GetX()
-                    if x > -100:
+                    if not plane:
                         h["absolute_x"].Fill(x)
                         x_true = point.GetX()
                         h["x-x_true"].Fill((x - x_true) * cm / um)
                     y = hit.GetY()
-                    if y > -100:
+                    if plane:
                         h["absolute_y"].Fill(y)
                         y_true = point.GetY()
                         h["y-y_true"].Fill((y - y_true) * cm / um)
@@ -330,7 +415,7 @@ def main():
                         if not first_tau_layer:
                             first_tau_layer = station
                         if station in layers_seen:
-                            if not plane in planes_seen[station]:
+                            if plane not in planes_seen[station]:
                                 layers += 1
                                 planes += 1
                                 planes_seen[station].append(plane)
@@ -340,11 +425,15 @@ def main():
                             planes += 1
                 if station:
                     if station and first_tau_layer:
-                        h["hits_per_det_after_tau_layer"].Fill(len(wlist), station - first_tau_layer)
+                        h["hits_per_det_after_tau_layer"].Fill(
+                            len(wlist), station - first_tau_layer
+                        )
                     else:
                         h["hits_per_det_after_tau_layer"].Fill(len(wlist), 0)
                     if plane and first_tau_plane:
-                        h["hits_per_det_after_tau_plane"].Fill(len(wlist), plane + station * 2 - first_tau_plane)
+                        h["hits_per_det_after_tau_plane"].Fill(
+                            len(wlist), plane + station * 2 - first_tau_plane
+                        )
                     else:
                         h["hits_per_det_after_tau_plane"].Fill(len(wlist), 0)
 
@@ -358,9 +447,7 @@ def main():
                 plane = (detID >> 14) % 2
                 strip = detID % 768
                 absolute_plane = int(plane + station * 2)
-                if (
-                        (strip == 0) or ((detID - 1) not in detIDs)
-                ) and (
+                if ((strip == 0) or ((detID - 1) not in detIDs)) and (
                     (strip == 767) or ((detID + 1) not in detIDs)
                 ):
                     if absolute_plane not in isolated_hits:
@@ -390,18 +477,25 @@ def main():
             if first_tau_plane:
                 for plane in range(first_tau_plane, first_tau_plane + 20):
                     if plane in isolated_hits:
-                        h["isolated_hits_after_tau_plane"].Fill(isolated_hits[plane], plane - first_tau_plane)
+                        h["isolated_hits_after_tau_plane"].Fill(
+                            isolated_hits[plane], plane - first_tau_plane
+                        )
                         if plane in fake_isolated_hits:
-                            h["fake_isolated_hits_after_tau_plane"].Fill(fake_isolated_hits[plane], plane - first_tau_plane)
+                            h["fake_isolated_hits_after_tau_plane"].Fill(
+                                fake_isolated_hits[plane], plane - first_tau_plane
+                            )
                         if plane in true_isolated_hits:
-                            h["true_isolated_hits_after_tau_plane"].Fill(true_isolated_hits[plane], plane - first_tau_plane)
+                            h["true_isolated_hits_after_tau_plane"].Fill(
+                                true_isolated_hits[plane], plane - first_tau_plane
+                            )
                         if plane in tau_isolated_hits:
-                            h["tau_isolated_hits_after_tau_plane"].Fill(tau_isolated_hits[plane])
+                            h["tau_isolated_hits_after_tau_plane"].Fill(
+                                tau_isolated_hits[plane]
+                            )
             for sensor, hs in hitmap.items():
                 adjacents = [sum(g) for k, g in groupby(hs) if k]
                 for cluster in adjacents:
                     h["adjacent_hits"].Fill(cluster)
-
 
         primary_tracks = 0
         primary_tracks_seen = 0
@@ -532,7 +626,7 @@ def main():
                         if tau_x and tau_y and trackID != 1:
                             delta_x = x - tau_x
                             delta_y = y - tau_y
-                            delta_L2 = sqrt(delta_x ** 2 + delta_y ** 2)
+                            delta_L2 = sqrt(delta_x**2 + delta_y**2)
                             h["delta_L2"].Fill(delta_L2 * cm / um)
                             if not min_d_2 or delta_L2 < min_d_2:
                                 min_d_2 = delta_L2
@@ -562,7 +656,11 @@ def main():
             tau = taus[0]
             other_primaries = [t for t in primaries if t.GetPdgCode() not in (-15, 15)]
             for key, config in CONFIGS.items():
-                tau_isolation = isolation_distance(tau, other_primaries, **config) if other_primaries else 0
+                tau_isolation = (
+                    isolation_distance(tau, other_primaries, **config)
+                    if other_primaries
+                    else 0
+                )
                 h["tau_isolation_" + key].Fill(tau_isolation / mm)
                 assert tau_dz
                 h["tau_isolation_vs_decay_length_" + key].Fill(
@@ -590,7 +688,8 @@ def main():
                                 primary.GetP() / GeV
                             )
                             h[f"isolated_track_charge_{key}_{distance}"].Fill(
-                                charge(primary.GetPdgCode()))
+                                charge(primary.GetPdgCode())
+                            )
                         else:
                             not_isolated_tracks.append(primary)
                     h[f"isolated_tracks_{key}_{distance}"].Fill(isolated)
