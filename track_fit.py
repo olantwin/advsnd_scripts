@@ -7,7 +7,7 @@ import numpy as np
 from tqdm import tqdm
 import ROOT
 
-from shipunit import um
+from shipunit import um, mm
 
 from pat_rec import Track2d
 
@@ -18,13 +18,16 @@ def track_fit_2d(track, fitter, strict=False):
     mom = ROOT.TVector3(0, 0, 100.0)  # default track with high momentum
 
     # approximate covariance
-    res = 35 * um
+    sqrt12 = 12**0.5
+    res_fine = 35 * um / sqrt12
+    res_coarse = 91.5 * mm / sqrt12
     rep = ROOT.genfit.RKTrackRep(13)
 
     fit_track = ROOT.genfit.Track(rep, pos, mom)
 
     hit_zs = np.array([hit.z for hit in track.hits])
     hit_xs = np.array([hit.x for hit in track.hits])
+    hit_ys = np.array([hit.y for hit in track.hits])
     hit_ids = np.array([hit.hit_id for hit in track.hits])
     det_ids = np.array([hit.det_id for hit in track.hits])
 
@@ -33,12 +36,13 @@ def track_fit_2d(track, fitter, strict=False):
     for i in hit_zs.argsort():
         hit_covariance = ROOT.TMatrixDSym(2)
         hit_covariance.UnitMatrix()
-        hit_covariance *= res**2
+        hit_covariance[0][0] = res_fine**2
+        hit_covariance[1][1] = res_coarse**2
         hit_coords = ROOT.TVectorD(2)
         hit_coords[0] = hit_xs[i]
-        hit_coords[1] = hit_zs[i]
+        hit_coords[1] = hit_ys[i]
 
-        measurement = ROOT.genfit.PlanarMeasurement(  # TODO: Change to spacepoint?
+        measurement = ROOT.genfit.PlanarMeasurement(
             hit_coords,
             hit_covariance,
             int(det_ids[i]),
