@@ -28,16 +28,14 @@ def track_fit_2d(track, fitter, strict=False):
     hit_zs = np.array([hit.z for hit in track.hits])
     hit_xs = np.array([hit.x for hit in track.hits])
     hit_ys = np.array([hit.y for hit in track.hits])
-    hit_ids = np.array([hit.hit_id for hit in track.hits])
-    det_ids = np.array([hit.det_id for hit in track.hits])
-
-    plane_id = 0
+    hit_ids = np.array([hit.hit_id for hit in track.hits], dtype=int)
+    det_ids = np.array([hit.det_id for hit in track.hits], dtype=int)
 
     for i in hit_zs.argsort():
         hit_covariance = ROOT.TMatrixDSym(2)
         hit_covariance.UnitMatrix()
-        hit_covariance[0][0] = res_fine**2
-        hit_covariance[1][1] = res_coarse**2
+        hit_covariance[track.view][track.view] = res_fine**2
+        hit_covariance[(track.view + 1) % 2][(track.view + 1) % 2] = res_coarse**2
         hit_coords = ROOT.TVectorD(2)
         hit_coords[0] = hit_xs[i]
         hit_coords[1] = hit_ys[i]
@@ -55,9 +53,8 @@ def track_fit_2d(track, fitter, strict=False):
                     ROOT.TVector3(0, 0, hit_zs[i]), ROOT.TVector3(0, 0, 1)
                 )
             ),
-            plane_id,
+            int(det_ids[i]),
         )
-        plane_id += 1
 
         fit_track.insertPoint(ROOT.genfit.TrackPoint(measurement, fit_track))
 
@@ -148,7 +145,7 @@ def main():
         track_id = 0
         for track_candidate in event.track_candidates:
             hits = []
-            view = 0
+            view = track_candidate.view
             for i in track_candidate.hit_indices:
                 digi_hit = event.Digi_advTargetClusters[i]
                 hit = ROOT.Hit()
