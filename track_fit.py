@@ -9,17 +9,17 @@ import ROOT
 
 from shipunit import um, mm
 
-from pat_rec import Track2d
+from pat_rec import Track
 
 
-def track_fit_2d(track, fitter, strict=False):
-    """Fit a single track candidate in 2d"""
+def track_fit(track, fitter, strict=False):
+    """Fit a single track candidate in 3d (also works for 2d)"""
     pos = ROOT.TVector3(0, 0, 0.0)
     mom = ROOT.TVector3(0, 0, 100.0)  # default track with high momentum
 
     # approximate covariance
     sqrt12 = 12**0.5
-    res_fine = 35 * um / sqrt12
+    res_fine = 122 * um / sqrt12
     res_coarse = 91.5 * mm / sqrt12
     rep = ROOT.genfit.RKTrackRep(13)
 
@@ -30,12 +30,14 @@ def track_fit_2d(track, fitter, strict=False):
     hit_ys = np.array([hit.y for hit in track.hits])
     hit_ids = np.array([hit.hit_id for hit in track.hits], dtype=int)
     det_ids = np.array([hit.det_id for hit in track.hits], dtype=int)
+    views = np.array([hit.view for hit in track.hits], dtype=int)
 
     for i in hit_zs.argsort():
+        view = int(views[i])
         hit_covariance = ROOT.TMatrixDSym(2)
         hit_covariance.UnitMatrix()
-        hit_covariance[track.view][track.view] = res_fine**2
-        hit_covariance[(track.view + 1) % 2][(track.view + 1) % 2] = res_coarse**2
+        hit_covariance[view][view] = res_fine**2
+        hit_covariance[(view + 1) % 2][(view + 1) % 2] = res_coarse**2
         hit_coords = ROOT.TVectorD(2)
         hit_coords[0] = hit_xs[i]
         hit_coords[1] = hit_ys[i]
@@ -135,7 +137,7 @@ def main():
     out_tree = tree.CloneTree(0)
 
     tracks = ROOT.std.vector("genfit::Track*")()
-    tracks_branch = out_tree.Branch("genfit_tracks", tracks)
+    out_tree.Branch("genfit_tracks", tracks)
     display = None
     if args.display:
         display = ROOT.genfit.EventDisplay.getInstance()
@@ -145,8 +147,7 @@ def main():
         track_id = 0
         for track_candidate in event.track_candidates:
             hits = []
-            view = track_candidate.view
-            for i in track_candidate.hit_indices:
+            for i in track_candidate:
                 digi_hit = event.Digi_advTargetClusters[i]
                 hit = ROOT.Hit()
                 hit.det_id = digi_hit.GetDetectorID()
@@ -157,14 +158,14 @@ def main():
                 hit.x = pos[0]
                 hit.y = pos[1]
                 hit.z = pos[2]
+                hit.view = int(digi_hit.isVertical())
                 hit.hit_id = i
                 hits.append(hit)
-            track = Track2d(view=view, hits=hits, track_id=track_id)
-            fit_track = track_fit_2d(track, fitter=kalman_fitter)
+            track = Track(hits=hits, track_id=track_id)
+            fit_track = track_fit(track, fitter=kalman_fitter)
             if fit_track and isGood(fit_track):
                 tracks.push_back(fit_track)
                 track_id += 1
-        tracks_branch.Fill()
         if display:
             display.addEvent(tracks)
         out_tree.Fill()
