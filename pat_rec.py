@@ -174,22 +174,53 @@ def hits_split(smeared_hits):
                                       'detID': detID}, {...}, ...]
     """
 
-    hits_x = []
-    hits_y = []
+    hits_dict = {
+        # view
+        0: {
+            # column
+            0: {
+                # row
+                0: [],
+                1: [],
+                2: [],
+                3: [],
+            },
+            1: {
+                # row
+                0: [],
+                1: [],
+                2: [],
+                3: [],
+            },
+        },
+        1: {
+            # column
+            0: {
+                # row
+                0: [],
+                1: [],
+                2: [],
+                3: [],
+            },
+            1: {
+                # row
+                0: [],
+                1: [],
+                2: [],
+                3: [],
+            },
+        },
+    }
 
     for hit in smeared_hits:
-        detID = hit["detID"]
+        det_id = hit["detID"]
+        view = (int(det_id >> 14) + 1) % 2
+        column = int(det_id >> 11) % 2
+        row = int(det_id >> 12) % 4
         # split by view
-        if int(detID >> 14) % 2:
-            hits_x.append(hit)
-        else:
-            hits_y.append(hit)
-        # TODO split by row/column?
+        hits_dict[view][column][row].append(hit)
 
-    return (
-        hits_x,
-        hits_y,
-    )
+    return hits_dict
 
 
 def artificial_retina_pattern_recognition(hits):
@@ -205,7 +236,7 @@ def artificial_retina_pattern_recognition(hits):
                                       'detID': detID}, {...}, ...]
     """
 
-    # recognized_tracks = {}
+    recognized_tracks = {}
 
     # if len(hits) > 1000:
     #     print("Too many hits in the event!")
@@ -214,18 +245,33 @@ def artificial_retina_pattern_recognition(hits):
     min_hits = 3
 
     # Separate hits
-    (
-        hits_x,
-        hits_y,
-    ) = hits_split(hits)
+    hits_dict = hits_split(hits)
+
+    for view in (0, 1):
+        recognized_tracks[view] = {}
+        for column in (0, 1):
+            recognized_tracks[view][column] = {}
+            for row in (0, 1, 2, 3):
+                hits = hits_dict[view][column][row]
+                recognized_tracks[view][column][
+                    row
+                ] = artificial_retina_pat_rec_single_view(
+                    hits, min_hits, proj="y" if view else "x"
+                )
+
+    # TODO combine short tracks
+
+    # TODO match tracks between modules
+
+    # TODO match tracks between views
 
     # PatRec in 1D
-    recognized_tracks_x = artificial_retina_pat_rec_single_view(
-        hits_x, min_hits, proj="x"
-    )
-    recognized_tracks_y = artificial_retina_pat_rec_single_view(
-        hits_y, min_hits, proj="y"
-    )
+    # recognized_tracks_x = artificial_retina_pat_rec_single_view(
+    #     hits_x, min_hits, proj="x"
+    # )
+    # recognized_tracks_y = artificial_retina_pat_rec_single_view(
+    #     hits_y, min_hits, proj="y"
+    # )
 
     # Try to match hits to other view
     # recognized_tracks_x_matched = artificial_retina_pat_rec_matched(
@@ -234,8 +280,6 @@ def artificial_retina_pattern_recognition(hits):
     # recognized_tracks_y_matched = artificial_retina_pat_rec_matched(
     #     hits_x, recognized_tracks_y, min_hits, "y"
     # )
-
-    # TODO find track candidates in different "blocks" separately and then combine?
 
     # Combination of tracks fro both views
     # recognized_tracks_combo = track_combination(
@@ -269,7 +313,7 @@ def artificial_retina_pattern_recognition(hits):
     # merged_tracks = merge_segments(recognized_tracks_x, proj="x")
     # track_match(recognized_tracks_x, recognized_tracks_y)
 
-    return recognized_tracks_x, recognized_tracks_y
+    return recognized_tracks
 
 
 def merge_tracks(tracks):
@@ -781,10 +825,13 @@ def main():
             for i, hit in enumerate(event.Digi_advTargetClusters)
             if (_ := hit.GetPosition(stop, start), True)
         ]
-        (
-            recognized_tracks_x,
-            recognized_tracks_y,
-        ) = artificial_retina_pattern_recognition(hits)
+        recognized_tracks = artificial_retina_pattern_recognition(hits)
+        recognized_tracks_x = []
+        recognized_tracks_y = []
+        for column in (0, 1):
+            for row in (0, 1, 2, 3):
+                recognized_tracks_x += recognized_tracks[0][column][row]
+                recognized_tracks_y += recognized_tracks[1][column][row]
         ax_xy, ax_xz, ax_zy = None, None, None
         if args.display:
             fig = plt.figure()
