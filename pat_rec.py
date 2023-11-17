@@ -14,6 +14,8 @@ from shipunit import um, cm
 
 RESOLUTION = 35 * um
 
+prop_cycle = plt.rcParams["axes.prop_cycle"]
+colors = prop_cycle.by_key()["color"]
 
 ROOT.gInterpreter.Declare(
     """
@@ -142,7 +144,7 @@ def retina_grad(track_prams, x, y, sigma, sample_weight=None):
         Standard deviation of hit form a track.
     sample_weight : array-like
         Hit weights used during the track fit.
-    Retunrs
+    Returns
     -------
     retina : float
         Negative value of the artificial retina gradient.
@@ -165,13 +167,17 @@ def hits_split(smeared_hits):
     """
     Split hits into groups of station views.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     SmearedHits : list
         Smeared hits. SmearedHits = [{'digiHit': key,
                                       'xtop': xtop, 'ytop': ytop, 'z': ztop,
                                       'xbot': xbot, 'ybot': ybot,
                                       'detID': detID}, {...}, ...]
+    Returns
+    -------
+    hit_dict : dict
+        Dictionary of hits indexed by view, column, row
     """
 
     hits_dict = {
@@ -247,17 +253,113 @@ def artificial_retina_pattern_recognition(hits):
     # Separate hits
     hits_dict = hits_split(hits)
 
+    plt.figure()
+    plt.xlim(-60, 10)
+    plt.ylim(0, 70)
     for view in (0, 1):
         recognized_tracks[view] = {}
         for column in (0, 1):
             recognized_tracks[view][column] = {}
             for row in (0, 1, 2, 3):
+                # module = column + 1 + 2 * row
+                # color = colors[module % len(colors)]
                 hits = hits_dict[view][column][row]
+                if not hits:
+                    recognized_tracks[view][column][row] = []
+                    continue
+                # xs = [(h["xtop"] + h["xbot"]) / 2 for h in hits]
+                # ys = [(h["ytop"] + h["ybot"]) / 2 for h in hits]
+                # if len(hits) > 1:
+                #     rect = plt.Rectangle(
+                #         (min(xs), min(ys)),
+                #         max(xs) - min(xs),
+                #         max(ys) - min(ys),
+                #         alpha=0.3,
+                #         color=color,
+                #     )
+                #     plt.gca().add_patch(rect)
+                # for hit in hits:
+                #     rect = plt.Rectangle(
+                #         (min(hit["xbot"], hit["xtop"]), min(hit["ybot"], hit["ytop"])),
+                #         abs(hit["xtop"] - hit["xbot"]),
+                #         abs(hit["ytop"] - hit["ybot"]),
+                #         alpha=0.3,
+                #         color=color,
+                #     )
+                #     plt.gca().add_patch(rect)
+                # plt.scatter(xs, ys, label=f"{view=}, {module=}", color=color)
                 recognized_tracks[view][column][
                     row
                 ] = artificial_retina_pat_rec_single_view(
                     hits, min_hits, proj="y" if view else "x"
                 )
+                # for track in recognized_tracks[view][column][row]:
+                # hits = track[f"hits_{'y' if view else 'x'}"]
+                # dict_of_hits = {k: [dic[k] for dic in hits] for k in hits[0]}
+                # rect = plt.Rectangle(
+                #     (min(dict_of_hits["xbot"]), min(dict_of_hits["ybot"])),
+                #     max(dict_of_hits["xtop"]) - min(dict_of_hits["ybot"]),
+                #     max(dict_of_hits["ytop"]) - min(dict_of_hits["ybot"]),
+                #     alpha=0.3,
+                #     color=color,
+                # )
+                # plt.gca().add_patch(rect)
+                # xs = [(h["xtop"] + h["xbot"]) / 2 for h in hits]
+                # ys = [(h["ytop"] + h["ybot"]) / 2 for h in hits]
+                # plt.scatter(xs, ys, label=f"{view=}, {module=}", color=color)
+
+    plt.legend()
+    plt.show()
+
+    fig = plt.figure()
+    gs = fig.add_gridspec(2, 2, hspace=0, wspace=0)
+    ax_xy = fig.add_subplot(gs[1, 0])
+    ax_xz = fig.add_subplot(gs[0, 0], sharex=ax_xy)
+    ax_zy = fig.add_subplot(gs[1, 1], sharey=ax_xy)
+    ax_xy.set_xlim(-60, 10)
+    ax_xy.set_ylim(0, 70)
+    ax_xz.set_ylim(-150, -70)
+    ax_zy.set_xlim(-150, -70)
+    # i = 0
+    for view in recognized_tracks:
+        for column in recognized_tracks[view]:
+            for row in recognized_tracks[view][column]:
+                for track in recognized_tracks[view][column][row]:
+                    hits = track[f"hits_{'y' if view else 'x'}"]
+                    dict_of_hits = {k: [dic[k] for dic in hits] for k in hits[0]}
+                    rect = plt.Rectangle(
+                        (min(dict_of_hits["xbot"]), min(dict_of_hits["z"])),
+                        max(dict_of_hits["xtop"]) - min(dict_of_hits["xbot"]),
+                        max(dict_of_hits["z"]) - min(dict_of_hits["z"]),
+                        alpha=0.3,
+                        color=colors[view],
+                    )
+                    ax_xz.add_patch(rect)
+                    rect = plt.Rectangle(
+                        (min(dict_of_hits["z"]), min(dict_of_hits["ybot"])),
+                        max(dict_of_hits["z"]) - min(dict_of_hits["z"]),
+                        max(dict_of_hits["ytop"]) - min(dict_of_hits["ybot"]),
+                        alpha=0.3,
+                        color=colors[view],
+                    )
+                    ax_zy.add_patch(rect)
+                    rect = plt.Rectangle(
+                        (min(dict_of_hits["xbot"]), min(dict_of_hits["ybot"])),
+                        max(dict_of_hits["xtop"]) - min(dict_of_hits["xbot"]),
+                        max(dict_of_hits["ytop"]) - min(dict_of_hits["ybot"]),
+                        alpha=0.3,
+                        color=colors[view],
+                    )
+                    ax_xy.add_patch(rect)
+                    # plt.plot(
+                    #     [i, i],
+                    #     [min(dict_of_hits["z"]), max(dict_of_hits["z"])],
+                    #     color=colors[view],
+                    # )
+                    # i += 1
+    fig.show()
+
+    # match_candidates = track_match(recognized_tracks[0], recognized_tracks[1])
 
     # TODO combine short tracks
 
@@ -432,30 +534,32 @@ def track_match(tracks_x, tracks_y):
                     trks.append(tj)
         if len(trks) > 1:
             logging.info(f"Matched the following tracks to each other: {trks}")
-            # t3D = complete_trajectories(trks)
+            return trks
+        return []
+        # t3D = complete_trajectories(trks)
 
-            # n_fake = t3D.check_views()
-            # if n_fake > 1:
-            #     continue
+        # n_fake = t3D.check_views()
+        # if n_fake > 1:
+        #     continue
 
-            # t3D.boundaries()
+        # t3D.boundaries()
 
-            # # TODO fit track
-            # isok = finalize_3d_track(t3D, 10)
-            # if isok == False:
-            #     continue
+        # # TODO fit track
+        # isok = finalize_3d_track(t3D, 10)
+        # if isok == False:
+        #     continue
 
-            # trk_ID = dc.evt_list[-1].n_tracks3D  # +1
-            # t3D.ID_3D = trk_ID
+        # trk_ID = dc.evt_list[-1].n_tracks3D  # +1
+        # t3D.ID_3D = trk_ID
 
-            # dc.tracks3D_list.append(t3D)
-            # dc.evt_list[-1].n_tracks3D += 1
+        # dc.tracks3D_list.append(t3D)
+        # dc.evt_list[-1].n_tracks3D += 1
 
-            # for t in trks:
-            #     for i in range(cf.n_view):
-            #         # t.matched[i] = -1
-            #         t.match_3D = trk_ID
-            #         t.set_match_hits_3D(trk_ID)
+        # for t in trks:
+        #     for i in range(cf.n_view):
+        #         # t.matched[i] = -1
+        #         t.match_3D = trk_ID
+        #         t.set_match_hits_3D(trk_ID)
 
 
 def get_zy_projection(z, xtop, ytop, xbot, ybot, k_y, b_y):
@@ -861,7 +965,6 @@ def main():
             track_candidates.emplace_back(track_candidate)
             if args.display:
                 hits_x = track_x.hits
-                # hits_stereo = track["hits_stereo"]
                 map(used_hits_x.append, (hit["detID"] for hit in hits_x))
                 z = np.array([hit["z"] for hit in hits_x])
                 x = np.array([(hit["xtop"] + hit["xbot"]) / 2 for hit in hits_x])
@@ -887,7 +990,6 @@ def main():
             track_candidates.emplace_back(track_candidate)
             if args.display:
                 hits_y = track_y.hits
-                # hits_stereo = track["hits_stereo"]
                 map(used_hits_y.append, (hit["detID"] for hit in hits_y))
                 z = np.array([hit["z"] for hit in hits_y])
                 x = np.array([(hit["xtop"] + hit["xbot"]) / 2 for hit in hits_y])
