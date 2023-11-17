@@ -426,8 +426,83 @@ def track_match(tracks_x, tracks_y):
     if not tracks_x and tracks_y:
         logging.warning("Need tracks in both views to attempt matching.")
         return
+
+    properties = index.Property()
+    properties.dimension = 2
+
+    # Create an rtree index (2D : z, x)
+    rtree_zx = index.Index(properties=properties)
+
+    # Create an rtree index (2D : z, x)
+    rtree_zy = index.Index(properties=properties)
+
+    tracks_2d = []
+    # flatten nested structure:
+    for column in (0, 1):
+        for row in (0, 1, 2, 3):
+            tracks_2d += tracks_x[column][row]
+            tracks_2d += tracks_y[column][row]
+
+    for i, track in enumerate(tracks_2d):
+        track.matched = []
+        xbots = np.array([hit["xbot"] for hit in track.hits])
+        xtops = np.array([hit["xtop"] for hit in track.hits])
+        ybots = np.array([hit["ybot"] for hit in track.hits])
+        ytops = np.array([hit["ytop"] for hit in track.hits])
+        # xs = (xtops + xbots)/2
+        # ys = (ytops + ybots)/2
+        zs = np.array([hit["z"] for hit in track.hits])
+
+        x_bottom = np.min(np.concatenate((xtops, xbots)))
+        x_top = np.max(np.concatenate((xtops, xbots)))
+        rtree_zx.insert(i, (zs[0], x_bottom, zs[-1], x_top))
+
+        y_bottom = np.min(np.concatenate((ytops, ybots)))
+        y_top = np.max(np.concatenate((ytops, ybots)))
+        rtree_zy.insert(i, (zs[0], y_bottom, zs[-1], y_top))
+
+    for i, track in enumerate(tracks_2d):
+        xbots = np.array([hit["xbot"] for hit in track.hits])
+        xtops = np.array([hit["xtop"] for hit in track.hits])
+        zs = np.array([hit["z"] for hit in track.hits])
+
+        x_bottom = np.min(np.concatenate((xtops, xbots)))
+        x_top = np.max(np.concatenate((xtops, xbots)))
+        for candidate in rtree_zx.intersection((zs[0], x_bottom, zs[-1], x_top)):
+            # Select candidates in other view
+            if candidate != i:
+                candidate_track = tracks_2d[candidate]
+                if candidate_track.view == track.view:
+                    continue
+                if i in candidate_track.matched:
+                    print(f"Track {i} already matched to {candidate}")
+                    track.matched.append(candidate)
+                    continue
+                hits = candidate_track.hits
+                ybots = np.array([hit["ybot"] for hit in hits])
+                ytops = np.array([hit["ytop"] for hit in hits])
+                zs = np.array([hit["z"] for hit in hits])
+                y_bottom = np.min(np.concatenate((ytops, ybots)))
+                y_top = np.max(np.concatenate((ytops, ybots)))
+                reverse_match = list(
+                    rtree_zy.intersection((zs[0], y_bottom, zs[-1], y_top))
+                )
+                if i in reverse_match:
+                    print(f"Successfully matched {candidate} to {i}")
+                    track.matched.append(candidate)
+        print(f"Matches for track {i}: {track.matched}")
+
+    return tracks_2d
+
+
+def track_match_old(tracks_x, tracks_y):
+    """Match tracks between views using an R-tree"""
+    if not tracks_x and tracks_y:
+        logging.warning("Need tracks in both views to attempt matching.")
+        return
     # TODO perform an optimisation to find best set of matches?
     # TODO use hit information in coarse direction to reduce number of possible matches
+
     properties = index.Property()
     properties.dimension = 2
     # Use rtrees (inspired by Lardon)
