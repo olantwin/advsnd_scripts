@@ -10,7 +10,7 @@ from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import ROOT
-from shipunit import um, cm
+from shipunit import um
 
 RESOLUTION = 35 * um
 
@@ -358,7 +358,8 @@ def artificial_retina_pattern_recognition(hits):
                     # i += 1
     fig.show()
 
-    # match_candidates = track_match(recognized_tracks[0], recognized_tracks[1])
+    match_candidates = track_match(recognized_tracks[0], recognized_tracks[1])
+    print(match_candidates)
 
     # TODO combine short tracks
 
@@ -412,7 +413,6 @@ def artificial_retina_pattern_recognition(hits):
     #         i_track += 1
 
     # merged_tracks = merge_segments(recognized_tracks_x, proj="x")
-    # track_match(recognized_tracks_x, recognized_tracks_y)
 
     return recognized_tracks
 
@@ -432,7 +432,7 @@ def track_match(tracks_x, tracks_y):
     properties.dimension = 2
     # Use rtrees (inspired by Lardon)
     #
-    ztol = 10 * cm
+    # ztol = 10 * cm
     #
     # Create an rtree index (3D : view, z)
     rtree_idx = index.Index(properties=properties)
@@ -443,15 +443,19 @@ def track_match(tracks_x, tracks_y):
     i = 0
     # fill the index
 
-    tracks_2d = tracks_x + tracks_y
-    views = len(tracks_x) * [0] + len(tracks_y) * [1]
+    tracks_2d = []
+    # flatten nested structure:
+    for column in (0, 1):
+        for row in (0, 1, 2, 3):
+            tracks_2d += tracks_x[column][row]
+            tracks_2d += tracks_y[column][row]
 
-    for view, track in zip(views, tracks_2d):
-        start = track[f"hits_{'x' if view == 0 else 'y'}"][0]["z"]
-        stop = track[f"hits_{'x' if view == 0 else 'y'}"][-1]["z"]
+    for track in tracks_2d:
+        start = track.hits[0]["z"]
+        stop = track.hits[-1]["z"]
 
         # if(t.len_straight >= len_min and t.ghost == False):
-        rtree_idx.insert(i, (view, start, view, stop))
+        rtree_idx.insert(i, (track.view, start, track.view, stop))
         i += 1
         idx_to_ID.append(i)
 
@@ -459,17 +463,17 @@ def track_match(tracks_x, tracks_y):
 
     ID_to_idx = {v: k for k, v in enumerate(idx_to_ID)}
 
-    for view, track_i in zip(views, tracks_2d):
+    for track_i in tracks_2d:
         # if(ti.len_straight < len_min):
         #     continue
-        track_i["matched"] = [-1, -1]
+        track_i.matched = [-1, -1]
 
-        ti_start = track_i[f"hits_{'x' if view == 0 else 'y'}"][0]["z"]
-        ti_stop = track_i[f"hits_{'x' if view == 0 else 'y'}"][-1]["z"]
+        ti_start = track_i.hits[0]["z"]
+        ti_stop = track_i.hits[-1]["z"]
 
         overlaps = []
         for iview in range(2):
-            if iview == view:
+            if iview == track_i.view:
                 continue
             else:
                 overlaps.append(
@@ -484,14 +488,14 @@ def track_match(tracks_x, tracks_y):
                 # j_idx = ID_to_idx[j_ID]
                 j_idx = j_ID
                 track_j = tracks_2d[j_idx]
-                tj_view = views[j_idx]
+                tj_view = track_j.view
                 # if(ti.module_ini != tj.module_ini):
                 #     continue
                 # if(ti.module_end != tj.module_end):
                 #     continue
 
-                tj_start = track_j[f"hits_{'x' if tj_view == 0 else 'y'}"][0]["z"]
-                tj_stop = track_j[f"hits_{'x' if tj_view == 0 else 'y'}"][-1]["z"]
+                tj_start = track_j.hits[0]["z"]
+                tj_stop = track_j.hits[-1]["z"]
 
                 # zmin = max(ti_stop, tj_stop)
                 # zmax = min(ti_start, tj_start)
@@ -507,29 +511,30 @@ def track_match(tracks_x, tracks_y):
 
                 # if(balance < qfrac and dmin < ztol):
                 #     matches.append( (j_ID, balance, dmin) )
-                if dmin < ztol:
-                    matches.append((j_ID, dmin))
-                else:
-                    logging.info(f"Match with track {j_ID} failed due to intolerance.")
+                matches.append((j_ID, dmin))
+                # if dmin < ztol:
+                #     matches.append((j_ID, dmin))
+                # else:
+                #     logging.info(f"Match with track {j_ID} failed due to intolerance.")
 
             if len(matches) > 0:
                 # sort matches by distance and take best match
                 matches = sorted(matches, key=itemgetter(1))
-                track_i["matched"][tj_view] = matches[0][0]
+                track_i.matched[tj_view] = matches[0][0]
 
                 """ now do the matching !"""
 
     for i_idx, track_i in enumerate(tracks_2d):
         i_ID = idx_to_ID[i_idx]
         trks = [track_i]
-        ti_view = views[i_idx]
+        ti_view = track_i.view
         for iview in range(ti_view + 1, 2):
-            j_ID = track_i["matched"][iview]
+            j_ID = track_i.matched[iview]
 
             if j_ID > 0:
                 j_idx = ID_to_idx[j_ID]
                 tj = tracks_2d[j_idx]
-                if tj["matched"][ti_view] == i_ID:
+                if tj.matched[ti_view] == i_ID:
                     trks.append(tj)
         if len(trks) > 1:
             logging.info(f"Matched the following tracks to each other: {trks}")
