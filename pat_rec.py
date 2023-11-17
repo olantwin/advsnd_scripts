@@ -37,9 +37,8 @@ class Hit:
 class Track:
     """Describe track for pattern matching purposes"""
 
-    def __init__(self, hits, track_id):
+    def __init__(self, hits):
         self.hits = hits
-        self.track_id = track_id
         self.tracklets = []
 
     def to_genfit(self):
@@ -253,9 +252,9 @@ def artificial_retina_pattern_recognition(hits):
     # Separate hits
     hits_dict = hits_split(hits)
 
-    plt.figure()
-    plt.xlim(-60, 10)
-    plt.ylim(0, 70)
+    # plt.figure()
+    # plt.xlim(-60, 10)
+    # plt.ylim(0, 70)
     for view in (0, 1):
         recognized_tracks[view] = {}
         for column in (0, 1):
@@ -308,8 +307,8 @@ def artificial_retina_pattern_recognition(hits):
                 # ys = [(h["ytop"] + h["ybot"]) / 2 for h in hits]
                 # plt.scatter(xs, ys, label=f"{view=}, {module=}", color=color)
 
-    plt.legend()
-    plt.show()
+    # plt.legend()
+    # plt.show()
 
     fig = plt.figure()
     gs = fig.add_gridspec(2, 2, hspace=0, wspace=0)
@@ -325,7 +324,7 @@ def artificial_retina_pattern_recognition(hits):
         for column in recognized_tracks[view]:
             for row in recognized_tracks[view][column]:
                 for track in recognized_tracks[view][column][row]:
-                    hits = track[f"hits_{'y' if view else 'x'}"]
+                    hits = track.hits
                     dict_of_hits = {k: [dic[k] for dic in hits] for k in hits[0]}
                     rect = plt.Rectangle(
                         (min(dict_of_hits["xbot"]), min(dict_of_hits["z"])),
@@ -730,6 +729,8 @@ def artificial_retina_pat_rec_single_view(hits, min_hits, proj="y"):
                                       'detID': detID}, {...}, ...]
     """
 
+    view = 1 if proj == "y" else 0
+
     long_recognized_tracks = []
     used_hits = np.zeros(len(hits))
 
@@ -755,20 +756,22 @@ def artificial_retina_pat_rec_single_view(hits, min_hits, proj="y"):
         )
         [k_seed_upd, b_seed_upd] = res.x
 
-        atrack = {}
-        atrack[f"hits_{proj}"] = []
-        atrack_layers = []
+        track = Track2d(
+            view=view,
+            hits=[],
+        )
+        used_stations = []
         hit_ids = []
 
         # TODO max distance between hits belonging to same track?
 
         # Add new hits to the seed
         for i_hit3, ahit3 in enumerate(hits):
-            if used_hits[i_hit3] == 1:
+            if used_hits[i_hit3]:
                 continue
 
-            layer3 = np.floor(ahit3["detID"] >> 15)
-            if layer3 in atrack_layers:
+            station = np.floor(ahit3["detID"] >> 15)
+            if station in used_stations:
                 continue
 
             in_bin = hit_in_window(
@@ -779,12 +782,12 @@ def artificial_retina_pat_rec_single_view(hits, min_hits, proj="y"):
                 window_width=1.4 * RESOLUTION,
             )
             if in_bin:
-                atrack[f"hits_{proj}"].append(ahit3)
-                atrack_layers.append(layer3)
+                track.hits.append(ahit3)
+                used_stations.append(station)
                 hit_ids.append(i_hit3)
 
-        if len(atrack[f"hits_{proj}"]) >= min_hits:
-            long_recognized_tracks.append(atrack)
+        if len(track.hits) >= min_hits:
+            long_recognized_tracks.append(track)
             used_hits[hit_ids] = 1
         else:
             break
@@ -795,49 +798,47 @@ def artificial_retina_pat_rec_single_view(hits, min_hits, proj="y"):
     )
 
     # Track fit
-    for atrack in recognized_tracks:
-        z_coords = [ahit["z"] for ahit in atrack[f"hits_{proj}"]]
-        p_coords = [
-            (ahit[f"{proj}top"] + ahit[f"{proj}bot"]) / 2
-            for ahit in atrack[f"hits_{proj}"]
-        ]
-        [atrack[f"k_{proj}"], atrack[f"b_{proj}"]] = np.polyfit(
-            z_coords, p_coords, deg=1
-        )
+    for track in recognized_tracks:
+        z_coords = [hit["z"] for hit in track.hits]
+        p_coords = [(hit[f"{proj}top"] + hit[f"{proj}bot"]) / 2 for hit in track.hits]
+        track.k, track.b = np.polyfit(z_coords, p_coords, deg=1)
 
     return recognized_tracks
 
 
 def reduce_clones_using_one_track_per_hit(recognized_tracks, min_hits=3, proj="y"):
     """
-    Remove clones
+    Remove clones.
 
-    Parameters:
-    -----------
-    recognized_tracks : list
-        Track hits. Tracks = [{'hits_y': [hit1, hit2, hit3, ...]}, {...}, ...]
+    Parameters
+    ----------
+    recognized_tracks : list[Track2d]
     min_hits : int
-        Minimal number of hits per track.
-    """
+        Minimum number of hits per track.
 
+    Returns
+    -------
+    tracks_no_clones : list[Track2d]
+    """
     used_hits = []
     tracks_no_clones = []
-    n_hits = [len(atrack[f"hits_{proj}"]) for atrack in recognized_tracks]
+    n_hits = [len(track.hits) for track in recognized_tracks]
 
     for i_track in np.argsort(n_hits)[::-1]:
-        atrack = recognized_tracks[i_track]
-        new_track = {}
-        new_track[f"hits_{proj}"] = []
+        track = recognized_tracks[i_track]
+        new_track = Track2d(
+            view=track.view,
+            hits=[],
+        )
 
-        for i_hit in range(len(atrack[f"hits_{proj}"])):
-            ahit = atrack[f"hits_{proj}"][i_hit]
-            if ahit["digiHit"] not in used_hits:
-                new_track[f"hits_{proj}"].append(ahit)
+        for hit in track.hits:
+            if hit["digiHit"] not in used_hits:
+                new_track.hits.append(hit)
 
-        if len(new_track[f"hits_{proj}"]) >= min_hits:
+        if len(new_track.hits) >= min_hits:
             tracks_no_clones.append(new_track)
-            for ahit in new_track[f"hits_{proj}"]:
-                used_hits.append(ahit["digiHit"])
+            for hit in new_track.hits:
+                used_hits.append(hit["digiHit"])
 
     return tracks_no_clones
 
@@ -867,7 +868,7 @@ def merge_segments(tracks, proj, threshold=0):
 
 
 def main():
-    """Preselect events using second tree with cuts"""
+    """Preselect events using second tree with cuts."""
     parser = argparse.ArgumentParser(description="Script for AdvSND analysis.")
     parser.add_argument(
         "-f",
@@ -949,16 +950,7 @@ def main():
             ax_zy.set_xlim(-150, -70)
         used_hits_x = []
         used_hits_y = []
-        track_id = 0
-        for track in recognized_tracks_x:
-            track_x = Track2d(
-                view=0,
-                hits=track["hits_x"],
-                b=track["b_x"],
-                k=track["k_x"],
-                track_id=track_id,
-            )
-            track_id += 1
+        for track_x in recognized_tracks_x:
             track_candidate = ROOT.std.vector("int")()
             for hit in track_x.hits:
                 track_candidate.push_back(hit["digiHit"])
@@ -975,15 +967,7 @@ def main():
                 b_x = track_x.b
                 k_x = track_x.k
                 ax_xz.plot(k_x * z + b_x, z, zorder=100)
-        for track in recognized_tracks_y:
-            track_y = Track2d(
-                view=1,
-                hits=track["hits_y"],
-                b=track["b_y"],
-                k=track["k_y"],
-                track_id=track_id,
-            )
-            track_id += 1
+        for track_y in recognized_tracks_y:
             track_candidate = ROOT.std.vector("int")()
             for hit in track_y.hits:
                 track_candidate.push_back(hit["digiHit"])
@@ -997,8 +981,8 @@ def main():
                 ax_xz.scatter(x, z, marker="x")
                 ax_zy.scatter(z, y, marker=".")
                 ax_xy.scatter(x, y, marker="$y$")
-                b_y = track["b_y"]
-                k_y = track["k_y"]
+                b_y = track_y.b
+                k_y = track_y.k
                 ax_zy.plot(z, k_y * z + b_y, zorder=100)
         if args.display:
             unused_hits = [
