@@ -3,6 +3,7 @@
 
 import argparse
 import logging
+from itertools import combinations
 from operator import itemgetter
 from rtree import index
 import numpy as np
@@ -37,12 +38,9 @@ class Hit:
 class Track:
     """Describe track for pattern matching purposes"""
 
-    def __init__(self, hits):
+    def __init__(self, hits, **kwargs):
         self.hits = hits
         self.tracklets = []
-
-    def to_genfit(self):
-        """Convert to the genfit/sndsw format"""
 
 
 class Track2d(Track):
@@ -54,23 +52,46 @@ class Track2d(Track):
         self.b = b
         super().__init__(**kwargs)
 
+    def __add__(self, other):
+        if self.view == other.view:
+            return Track2d(
+                hits=self.hits + other.hits,
+                view=self.view,
+                b=(self.b + other.b) / 2,
+                k=(self.k + other.k) / 2,
+            )
+        if self.view:
+            return other + self
+        return Track3d(
+            hits=self.hits + other.hits,
+            b_x=self.b,
+            k_x=self.k,
+            b_y=other.b,
+            k_y=other.k,
+        )
+
+    def to_3d(self):
+        return Track3d(
+            hits=self.hits,
+            b_x=self.b if not self.view else 0,
+            k_x=self.k if not self.view else 0,
+            b_y=self.b if self.view else 0,
+            k_y=self.k if self.view else 0,
+        )
+
+    def extrapolate_to(self, z):
+        return self.k * z + self.b
+
 
 class Track3d(Track):
     """Specialisation for 3d tracks"""
 
-    def __init__(self, **kwargs):
-        self.k_x = 0
-        self.b_x = 0
-        self.k_y = 0
-        self.b_y = 0
+    def __init__(self, k_x=0, k_y=0, b_x=0, b_y=0, **kwargs):
+        self.k_x = k_x
+        self.b_x = b_x
+        self.k_y = k_y
+        self.b_y = b_y
         super().__init__(**kwargs)
-
-    def get_zx_track(self):
-        return Track2d(view=0, b=self.b_x, k=self.k_x)  # TODO add other args
-
-    def get_zy_track(self):
-        return Track2d(view=1, b=self.b_y, k=self.k_y)  # TODO add other args
-        pass
 
 
 def get_best_seed(x, y, sigma, sample_weight=None):
@@ -310,122 +331,126 @@ def artificial_retina_pattern_recognition(hits):
     # plt.legend()
     # plt.show()
 
-    fig = plt.figure()
-    gs = fig.add_gridspec(2, 2, hspace=0, wspace=0)
-    ax_xy = fig.add_subplot(gs[1, 0])
-    ax_xz = fig.add_subplot(gs[0, 0], sharex=ax_xy)
-    ax_zy = fig.add_subplot(gs[1, 1], sharey=ax_xy)
-    ax_xy.set_xlim(-60, 10)
-    ax_xy.set_ylim(0, 70)
-    ax_xz.set_ylim(-150, -70)
-    ax_zy.set_xlim(-150, -70)
+    # fig = plt.figure()
+    # gs = fig.add_gridspec(2, 2, hspace=0, wspace=0)
+    # ax_xy = fig.add_subplot(gs[1, 0])
+    # ax_xz = fig.add_subplot(gs[0, 0], sharex=ax_xy)
+    # ax_zy = fig.add_subplot(gs[1, 1], sharey=ax_xy)
+    # ax_xy.set_xlim(-60, 10)
+    # ax_xy.set_ylim(0, 70)
+    # ax_xz.set_ylim(-150, -70)
+    # ax_zy.set_xlim(-150, -70)
     # i = 0
-    for view in recognized_tracks:
-        for column in recognized_tracks[view]:
-            for row in recognized_tracks[view][column]:
-                for track in recognized_tracks[view][column][row]:
-                    hits = track.hits
-                    dict_of_hits = {k: [dic[k] for dic in hits] for k in hits[0]}
-                    rect = plt.Rectangle(
-                        (min(dict_of_hits["xbot"]), min(dict_of_hits["z"])),
-                        max(dict_of_hits["xtop"]) - min(dict_of_hits["xbot"]),
-                        max(dict_of_hits["z"]) - min(dict_of_hits["z"]),
-                        alpha=0.3,
-                        color=colors[view],
-                    )
-                    ax_xz.add_patch(rect)
-                    rect = plt.Rectangle(
-                        (min(dict_of_hits["z"]), min(dict_of_hits["ybot"])),
-                        max(dict_of_hits["z"]) - min(dict_of_hits["z"]),
-                        max(dict_of_hits["ytop"]) - min(dict_of_hits["ybot"]),
-                        alpha=0.3,
-                        color=colors[view],
-                    )
-                    ax_zy.add_patch(rect)
-                    rect = plt.Rectangle(
-                        (min(dict_of_hits["xbot"]), min(dict_of_hits["ybot"])),
-                        max(dict_of_hits["xtop"]) - min(dict_of_hits["xbot"]),
-                        max(dict_of_hits["ytop"]) - min(dict_of_hits["ybot"]),
-                        alpha=0.3,
-                        color=colors[view],
-                    )
-                    ax_xy.add_patch(rect)
-                    # plt.plot(
-                    #     [i, i],
-                    #     [min(dict_of_hits["z"]), max(dict_of_hits["z"])],
-                    #     color=colors[view],
-                    # )
-                    # i += 1
-    fig.show()
-
-    match_candidates = track_match(recognized_tracks[0], recognized_tracks[1])
-    print(match_candidates)
-
-    # TODO combine short tracks
-
-    # TODO match tracks between modules
-
-    # TODO match tracks between views
-
-    # PatRec in 1D
-    # recognized_tracks_x = artificial_retina_pat_rec_single_view(
-    #     hits_x, min_hits, proj="x"
+    # for view in recognized_tracks:
+    #     for column in recognized_tracks[view]:
+    #         for row in recognized_tracks[view][column]:
+    #             for track in recognized_tracks[view][column][row]:
+    #                 hits = track.hits
+    #                 dict_of_hits = {k: [dic[k] for dic in hits] for k in hits[0]}
+    #                 rect = plt.Rectangle(
+    #                     (min(dict_of_hits["xbot"]), min(dict_of_hits["z"])),
+    #                     max(dict_of_hits["xtop"]) - min(dict_of_hits["xbot"]),
+    #                     max(dict_of_hits["z"]) - min(dict_of_hits["z"]),
+    #                     alpha=0.3,
+    #                     color=colors[view],
+    #                 )
+    #                 ax_xz.add_patch(rect)
+    #                 rect = plt.Rectangle(
+    #                     (min(dict_of_hits["z"]), min(dict_of_hits["ybot"])),
+    #                     max(dict_of_hits["z"]) - min(dict_of_hits["z"]),
+    #                     max(dict_of_hits["ytop"]) - min(dict_of_hits["ybot"]),
+    #                     alpha=0.3,
+    #                     color=colors[view],
+    #                 )
+    #                 ax_zy.add_patch(rect)
+    #                 rect = plt.Rectangle(
+    #                     (min(dict_of_hits["xbot"]), min(dict_of_hits["ybot"])),
+    #                     max(dict_of_hits["xtop"]) - min(dict_of_hits["xbot"]),
+    #                     max(dict_of_hits["ytop"]) - min(dict_of_hits["ybot"]),
+    #                     alpha=0.3,
+    #                     color=colors[view],
+    #                 )
+    #                 ax_xy.add_patch(rect)
+    # plt.plot(
+    #     [i, i],
+    #     [min(dict_of_hits["z"]), max(dict_of_hits["z"])],
+    #     color=colors[view],
     # )
-    # recognized_tracks_y = artificial_retina_pat_rec_single_view(
-    #     hits_y, min_hits, proj="y"
-    # )
+    # i += 1
+    # fig.show()
 
-    # Try to match hits to other view
-    # recognized_tracks_x_matched = artificial_retina_pat_rec_matched(
-    #     hits_y, recognized_tracks_x, min_hits, "x"
-    # )
-    # recognized_tracks_y_matched = artificial_retina_pat_rec_matched(
-    #     hits_x, recognized_tracks_y, min_hits, "y"
-    # )
+    flat_view_x = []
+    flat_view_y = []
 
-    # Combination of tracks fro both views
-    # recognized_tracks_combo = track_combination(
-    #     recognized_tracks_x_matched, recognized_tracks_y_matched
-    # )
+    for column in (0, 1):
+        for row in (0, 1, 2, 3):
+            flat_view_x += recognized_tracks[0][column][row]
+            flat_view_y += recognized_tracks[1][column][row]
 
-    # Prepare output of PatRec
-    # recognized_tracks = {}
-    # i_track = 0
-    # for atrack_combo in recognized_tracks_combo:
-    #     hits_y12 = atrack_combo["hits_y12"]
-    #     hits_stereo12 = atrack_combo["hits_stereo12"]
-    #     hits_y34 = atrack_combo["hits_y34"]
-    #     hits_stereo34 = atrack_combo["hits_stereo34"]
+    # Combine short tracks
+    long_tracks_x = match_segments(flat_view_x)
+    long_tracks_y = match_segments(flat_view_y)
 
-    #     if (
-    #         len(hits_y12) >= min_hits
-    #         and len(hits_stereo12) >= min_hits
-    #         and len(hits_y34) >= min_hits
-    #         and len(hits_stereo34) >= min_hits
-    #     ):
-    #         atrack = {
-    #             "y12": hits_y12,
-    #             "stereo12": hits_stereo12,
-    #             "y34": hits_y34,
-    #             "stereo34": hits_stereo34,
-    #         }
-    #         recognized_tracks[i_track] = atrack
-    #         i_track += 1
+    # Match tracks between views
+    matches = match_tracks(long_tracks_x, long_tracks_y)
 
-    # merged_tracks = merge_segments(recognized_tracks_x, proj="x")
-
-    return recognized_tracks
+    return matches
 
 
-def merge_tracks(tracks):
-    pass
+def merge_tracks(track, other, tolerance=10):
+    """Attempt to merge two tracks in 2d or 3d."""
+    # Check whether tracks are compatible
+    if track.view == other.view:
+        # 2d case: extrapolate to end of first track and check whether within tolerance
+        proj = "y" if track.view else "x"
+        if track.hits[-1]["z"] > other.hits[-1]["z"]:
+            return merge_tracks(other, track)
+        if (
+            abs(
+                other.extrapolate_to(track.hits[-1]["z"])
+                - (track.hits[-1][f"{proj}top"] + track.hits[-1][f"{proj}bot"]) / 2
+            )
+            < RESOLUTION * tolerance
+        ):
+            logging.info(f"Merge 2d: Successful merge of tracks {track}, {other}.")
+            return track + other
+        logging.info(f"Merge 2d: Tracks {track}, {other} not compatible.")
+
+    else:
+        # 3d: extrapolate tracks to centre of other track and check consistency
+        if track.view:
+            track, other = other, track
+        ybots = np.array([hit["ybot"] for hit in track.hits])
+        ytops = np.array([hit["ytop"] for hit in track.hits])
+        ys = (ytops + ybots) / 2
+        dys = np.abs(ytops - ybots) / 2
+        zs = np.array([hit["z"] for hit in track.hits])
+        middle = int(len(track.hits) / 2)
+        o_xbots = np.array([hit["xbot"] for hit in other.hits])
+        o_xtops = np.array([hit["xtop"] for hit in other.hits])
+        o_xs = (o_xtops + o_xbots) / 2
+        o_dxs = np.abs(o_xtops - o_xbots) / 2
+        o_zs = np.array([hit["z"] for hit in other.hits])
+        o_middle = int(len(other.hits) / 2)
+        if (
+            o_xs[o_middle] - o_dxs[o_middle] - tolerance * RESOLUTION
+            <= track.extrapolate_to(o_zs[o_middle])
+            <= o_xs[o_middle] + o_dxs[o_middle] + tolerance * RESOLUTION
+        ) and (
+            ys[middle] - dys[middle] - tolerance * RESOLUTION
+            <= other.extrapolate_to(zs[middle])
+            <= ys[middle] + dys[middle] + tolerance * RESOLUTION
+        ):
+            logging.info(f"Merge 3d: Successful merge of tracks {track}, {other}.")
+            return track + other
+        logging.info(f"Merge 3d: Tracks {track}, {other} not compatible.")
 
 
-def track_match(tracks_x, tracks_y):
+def match_tracks(tracks_x, tracks_y):
     """Match tracks between views using an R-tree"""
     if not tracks_x and tracks_y:
         logging.warning("Need tracks in both views to attempt matching.")
-        return
+        return []
 
     properties = index.Property()
     properties.dimension = 2
@@ -436,12 +461,7 @@ def track_match(tracks_x, tracks_y):
     # Create an rtree index (2D : z, x)
     rtree_zy = index.Index(properties=properties)
 
-    tracks_2d = []
-    # flatten nested structure:
-    for column in (0, 1):
-        for row in (0, 1, 2, 3):
-            tracks_2d += tracks_x[column][row]
-            tracks_2d += tracks_y[column][row]
+    tracks_2d = tracks_x + tracks_y
 
     for i, track in enumerate(tracks_2d):
         track.matched = []
@@ -492,278 +512,21 @@ def track_match(tracks_x, tracks_y):
                     track.matched.append(candidate)
         print(f"Matches for track {i}: {track.matched}")
 
-    return tracks_2d
-
-
-def track_match_old(tracks_x, tracks_y):
-    """Match tracks between views using an R-tree"""
-    if not tracks_x and tracks_y:
-        logging.warning("Need tracks in both views to attempt matching.")
-        return
-    # TODO perform an optimisation to find best set of matches?
-    # TODO use hit information in coarse direction to reduce number of possible matches
-
-    properties = index.Property()
-    properties.dimension = 2
-    # Use rtrees (inspired by Lardon)
-    #
-    # ztol = 10 * cm
-    #
-    # Create an rtree index (3D : view, z)
-    rtree_idx = index.Index(properties=properties)
-
-    # keep track of indices as sorting will change them!
-    idx_to_ID = []
-
-    i = 0
-    # fill the index
-
-    tracks_2d = []
-    # flatten nested structure:
-    for column in (0, 1):
-        for row in (0, 1, 2, 3):
-            tracks_2d += tracks_x[column][row]
-            tracks_2d += tracks_y[column][row]
-
-    for track in tracks_2d:
-        start = track.hits[0]["z"]
-        stop = track.hits[-1]["z"]
-
-        # if(t.len_straight >= len_min and t.ghost == False):
-        rtree_idx.insert(i, (track.view, start, track.view, stop))
-        i += 1
-        idx_to_ID.append(i)
-
-        # search for the best matching track in the other view
-
-    ID_to_idx = {v: k for k, v in enumerate(idx_to_ID)}
-
-    for track_i in tracks_2d:
-        # if(ti.len_straight < len_min):
-        #     continue
-        track_i.matched = [-1, -1]
-
-        ti_start = track_i.hits[0]["z"]
-        ti_stop = track_i.hits[-1]["z"]
-
-        overlaps = []
-        for iview in range(2):
-            if iview == track_i.view:
+    tracks_3d = []
+    attempted = set()
+    for i, track in enumerate(tracks_2d):
+        for other in track.matched:
+            if (i, other) in attempted or (other, i) in attempted:
                 continue
-            else:
-                overlaps.append(
-                    list(rtree_idx.intersection((iview, ti_start, iview, ti_stop)))
-                )
+            attempted.add((i, other))
+            try:
+                if merged := merge_tracks(track, tracks_2d[other]):
+                    tracks_3d.append(merged)
+            except RuntimeError as e:
+                logging.warning(e)
+        tracks_3d.append(track.to_3d())
 
-        logging.info(overlaps)
-
-        for overlap in overlaps:
-            matches = []
-            for j_ID in overlap:
-                # j_idx = ID_to_idx[j_ID]
-                j_idx = j_ID
-                track_j = tracks_2d[j_idx]
-                tj_view = track_j.view
-                # if(ti.module_ini != tj.module_ini):
-                #     continue
-                # if(ti.module_end != tj.module_end):
-                #     continue
-
-                tj_start = track_j.hits[0]["z"]
-                tj_stop = track_j.hits[-1]["z"]
-
-                # zmin = max(ti_stop, tj_stop)
-                # zmax = min(ti_start, tj_start)
-                # qi = np.fabs(ti.charge_in_z_interval(zmin, zmax))
-                # qj = np.fabs(tj.charge_in_z_interval(zmin, zmax))
-
-                # TODO use dE/dx to match tracks?
-                # try:
-                #     balance = math.fabs(qi - qj)/(qi + qj)
-                # except ZeroDivisionError:
-                #     balance = 9999.
-                dmin = min(np.abs(ti_start - tj_start), np.abs(ti_stop - tj_stop))
-
-                # if(balance < qfrac and dmin < ztol):
-                #     matches.append( (j_ID, balance, dmin) )
-                matches.append((j_ID, dmin))
-                # if dmin < ztol:
-                #     matches.append((j_ID, dmin))
-                # else:
-                #     logging.info(f"Match with track {j_ID} failed due to intolerance.")
-
-            if len(matches) > 0:
-                # sort matches by distance and take best match
-                matches = sorted(matches, key=itemgetter(1))
-                track_i.matched[tj_view] = matches[0][0]
-
-                """ now do the matching !"""
-
-    for i_idx, track_i in enumerate(tracks_2d):
-        i_ID = idx_to_ID[i_idx]
-        trks = [track_i]
-        ti_view = track_i.view
-        for iview in range(ti_view + 1, 2):
-            j_ID = track_i.matched[iview]
-
-            if j_ID > 0:
-                j_idx = ID_to_idx[j_ID]
-                tj = tracks_2d[j_idx]
-                if tj.matched[ti_view] == i_ID:
-                    trks.append(tj)
-        if len(trks) > 1:
-            logging.info(f"Matched the following tracks to each other: {trks}")
-            return trks
-        return []
-        # t3D = complete_trajectories(trks)
-
-        # n_fake = t3D.check_views()
-        # if n_fake > 1:
-        #     continue
-
-        # t3D.boundaries()
-
-        # # TODO fit track
-        # isok = finalize_3d_track(t3D, 10)
-        # if isok == False:
-        #     continue
-
-        # trk_ID = dc.evt_list[-1].n_tracks3D  # +1
-        # t3D.ID_3D = trk_ID
-
-        # dc.tracks3D_list.append(t3D)
-        # dc.evt_list[-1].n_tracks3D += 1
-
-        # for t in trks:
-        #     for i in range(cf.n_view):
-        #         # t.matched[i] = -1
-        #         t.match_3D = trk_ID
-        #         t.set_match_hits_3D(trk_ID)
-
-
-def get_zy_projection(z, xtop, ytop, xbot, ybot, k_y, b_y):
-    # FIXME: Useless for 90 degree views?
-    x = k_y * z + b_y
-    k = (ytop - ybot) / (xtop - xbot + 10**-6)
-    b = ytop - k * xtop
-    y = k * x + b
-
-    return y
-
-
-def get_zx_projection(z, ytop, xtop, ybot, xbot, k_x, b_x):
-    y = k_x * z + b_x
-    k = (xtop - xbot) / (ytop - ybot + 10**-6)
-    b = xtop - k * ytop
-    x = k * y + b
-
-    return x
-
-
-def artificial_retina_pat_rec_matched(
-    SmearedHits_stereo, recognized_tracks_p, min_hits, proj="y"
-):
-    """Perform pattern recognition for stereo layer"""
-    recognized_tracks_stereo = []
-    used_hits = []
-    other = "x" if proj == "y" else "y"
-
-    for atrack_p in recognized_tracks_p:
-        k_p = atrack_p[f"k_{proj}"]
-        b_p = atrack_p[f"b_{proj}"]
-
-        # Get hit zx projections
-        for ahit in SmearedHits_stereo:
-            x_center = get_zy_projection(
-                ahit["z"],
-                ahit["ytop"],
-                ahit["xtop"],
-                ahit["ybot"],
-                ahit["xbot"],
-                k_p,
-                b_p,
-            )
-            ahit[f"z{other}_projection"] = x_center
-
-        long_recognized_tracks_stereo = []
-        hits_z = []
-        hits_o = []
-
-        for ahit in SmearedHits_stereo:
-            if ahit["digiHit"] in used_hits:
-                continue
-            if abs(ahit[f"z{other}_projection"]) > 300:
-                continue
-            hits_z.append(ahit["z"])
-            hits_o.append(ahit[f"z{other}_projection"])
-        hits_z = np.array(hits_z)
-        hits_o = np.array(hits_o)
-
-        sigma = 15.0 * RESOLUTION
-        best_seed_params = get_best_seed(hits_z, hits_o, sigma, sample_weight=None)
-
-        res = minimize(
-            retina_func,
-            best_seed_params,
-            args=(hits_z, hits_o, sigma, None),
-            method="BFGS",
-            jac=retina_grad,
-            options={"gtol": 1e-6, "disp": False, "maxiter": 5},
-        )
-        [k_seed_upd, b_seed_upd] = res.x
-
-        atrack_stereo = {}
-        atrack_stereo["hits_stereo"] = []
-        atrack_stereo_layers = []
-
-        for ahit3 in SmearedHits_stereo:
-            if ahit3["digiHit"] in used_hits:
-                continue
-
-            if abs(ahit3[f"z{other}_projection"]) > 300:
-                continue
-
-            layer3 = np.floor(ahit3["detID"] >> 15)
-            if layer3 in atrack_stereo_layers:
-                continue
-
-            in_bin = hit_in_window(
-                ahit3["z"],
-                ahit3[f"z{other}_projection"],
-                k_seed_upd,
-                b_seed_upd,
-                window_width=15.0 * RESOLUTION,
-            )
-            if in_bin:
-                atrack_stereo["hits_stereo"].append(ahit3)
-                atrack_stereo_layers.append(layer3)
-
-        if len(atrack_stereo["hits_stereo"]) >= min_hits:
-            long_recognized_tracks_stereo.append(atrack_stereo)
-
-        # Remove clones
-        max_track = None
-        max_n_hits = -999
-
-        for atrack_stereo in long_recognized_tracks_stereo:
-            if len(atrack_stereo["hits_stereo"]) > max_n_hits:
-                max_track = atrack_stereo
-                max_n_hits = len(atrack_stereo["hits_stereo"])
-
-        atrack = {}
-        atrack[f"hits_{proj}"] = atrack_p[f"hits_{proj}"]
-        atrack[f"k_{proj}"] = atrack_p[f"k_{proj}"]
-        atrack[f"b_{proj}"] = atrack_p[f"b_{proj}"]
-        atrack["hits_stereo"] = []
-
-        if max_track is not None:
-            atrack["hits_stereo"] = max_track["hits_stereo"]
-            for ahit in max_track["hits_stereo"]:
-                used_hits.append(ahit["digiHit"])
-
-        recognized_tracks_stereo.append(atrack)
-
-    return recognized_tracks_stereo
+    return reduce_clones_using_one_track_per_hit(tracks_3d)
 
 
 def hit_in_window(x, y, k_bin, b_bin, window_width=1.0):
@@ -874,7 +637,7 @@ def artificial_retina_pat_rec_single_view(hits, min_hits, proj="y"):
 
     # Remove clones
     recognized_tracks = reduce_clones_using_one_track_per_hit(
-        long_recognized_tracks, min_hits, proj
+        long_recognized_tracks, min_hits
     )
 
     # Track fit
@@ -886,19 +649,19 @@ def artificial_retina_pat_rec_single_view(hits, min_hits, proj="y"):
     return recognized_tracks
 
 
-def reduce_clones_using_one_track_per_hit(recognized_tracks, min_hits=3, proj="y"):
+def reduce_clones_using_one_track_per_hit(recognized_tracks, min_hits=3):
     """
     Remove clones.
 
     Parameters
     ----------
-    recognized_tracks : list[Track2d]
+    recognized_tracks : list[Track]
     min_hits : int
         Minimum number of hits per track.
 
     Returns
     -------
-    tracks_no_clones : list[Track2d]
+    tracks_no_clones : list[Track]
     """
     used_hits = []
     tracks_no_clones = []
@@ -906,9 +669,15 @@ def reduce_clones_using_one_track_per_hit(recognized_tracks, min_hits=3, proj="y
 
     for i_track in np.argsort(n_hits)[::-1]:
         track = recognized_tracks[i_track]
-        new_track = Track2d(
-            view=track.view,
+        new_track = type(track)(
             hits=[],
+            view=track.view if hasattr(track, "view") else None,
+            b=track.b if hasattr(track, "b") else None,
+            k=track.k if hasattr(track, "k") else None,
+            b_x=track.b_x if hasattr(track, "b_x") else None,
+            k_x=track.k_x if hasattr(track, "k_x") else None,
+            b_y=track.b_y if hasattr(track, "b_y") else None,
+            k_y=track.k_y if hasattr(track, "k_y") else None,
         )
 
         for hit in track.hits:
@@ -923,28 +692,33 @@ def reduce_clones_using_one_track_per_hit(recognized_tracks, min_hits=3, proj="y
     return tracks_no_clones
 
 
-def merge_segments(tracks, proj, threshold=0):
+def match_segments(tracks):
     """Attempt to merge segments of tracks split in z"""
     # TODO use rtrees (inspired by Lardon)
     # rtree nearest neighbours?
     if len(tracks) == 1:
         return tracks
     # DONE sort all tracks in z (they should already be?)
+    long_tracks = tracks
     candidate_pairs = []
-    z_ordered_tracks = sorted(tracks, key=lambda track: track[f"hits_{proj}"][0]["z"])
-    for i, track_i in enumerate(z_ordered_tracks[:-1]):
-        sorted_hits_i = sorted(track_i[f"hits_{proj}"], key=itemgetter("z"))
-        for j, track_j in enumerate(z_ordered_tracks[1:]):
-            if i == j:
-                continue
-            sorted_hits_j = sorted(track_j[f"hits_{proj}"], key=itemgetter("z"))
-            if sorted_hits_i[-1]["z"] < sorted_hits_j[0]["z"]:
-                candidate_pairs.append((i, j))
+    # TODO need overlap in x,y, no overlap in z
+    z_ordered_tracks = sorted(tracks, key=lambda track: track.hits[0]["z"])
+    for track_i, track_j in combinations(z_ordered_tracks, 2):
+        sorted_hits_i = sorted(track_i.hits, key=itemgetter("z"))
+        sorted_hits_j = sorted(track_j.hits, key=itemgetter("z"))
+        if sorted_hits_i[-1]["z"] < sorted_hits_j[0]["z"]:
+            candidate_pairs.append((track_i, track_j))
     print(candidate_pairs)
     for pair in candidate_pairs:
+        try:
+            if merged := merge_tracks(*pair):
+                long_tracks.append(merged)
+        except RuntimeError as e:
+            logging.warning(e)
         # TODO perform merge
-        # How to deal with multiple options? chi^2?
-        pass
+
+    # How to deal with multiple options? chi^2?
+    return reduce_clones_using_one_track_per_hit(long_tracks)
 
 
 def main():
@@ -1011,12 +785,6 @@ def main():
             if (_ := hit.GetPosition(stop, start), True)
         ]
         recognized_tracks = artificial_retina_pattern_recognition(hits)
-        recognized_tracks_x = []
-        recognized_tracks_y = []
-        for column in (0, 1):
-            for row in (0, 1, 2, 3):
-                recognized_tracks_x += recognized_tracks[0][column][row]
-                recognized_tracks_y += recognized_tracks[1][column][row]
         ax_xy, ax_xz, ax_zy = None, None, None
         if args.display:
             fig = plt.figure()
@@ -1028,54 +796,50 @@ def main():
             ax_xy.set_ylim(0, 70)
             ax_xz.set_ylim(-150, -70)
             ax_zy.set_xlim(-150, -70)
-        used_hits_x = []
-        used_hits_y = []
-        for track_x in recognized_tracks_x:
+        used_hits = []
+        for track in recognized_tracks:
             track_candidate = ROOT.std.vector("int")()
-            for hit in track_x.hits:
+            for hit in track.hits:
                 track_candidate.push_back(hit["digiHit"])
             track_candidates.emplace_back(track_candidate)
             if args.display:
-                hits_x = track_x.hits
-                map(used_hits_x.append, (hit["detID"] for hit in hits_x))
-                z = np.array([hit["z"] for hit in hits_x])
-                x = np.array([(hit["xtop"] + hit["xbot"]) / 2 for hit in hits_x])
-                y = np.array([(hit["ytop"] + hit["ybot"]) / 2 for hit in hits_x])
-                ax_xz.scatter(x, z, marker=".")
-                ax_zy.scatter(z, y, marker="x")
-                ax_xy.scatter(x, y, marker="$x$")
-                b_x = track_x.b
-                k_x = track_x.k
-                ax_xz.plot(k_x * z + b_x, z, zorder=100)
-        for track_y in recognized_tracks_y:
-            track_candidate = ROOT.std.vector("int")()
-            for hit in track_y.hits:
-                track_candidate.push_back(hit["digiHit"])
-            track_candidates.emplace_back(track_candidate)
-            if args.display:
-                hits_y = track_y.hits
-                map(used_hits_y.append, (hit["detID"] for hit in hits_y))
-                z = np.array([hit["z"] for hit in hits_y])
-                x = np.array([(hit["xtop"] + hit["xbot"]) / 2 for hit in hits_y])
-                y = np.array([(hit["ytop"] + hit["ybot"]) / 2 for hit in hits_y])
-                ax_xz.scatter(x, z, marker="x")
-                ax_zy.scatter(z, y, marker=".")
-                ax_xy.scatter(x, y, marker="$y$")
-                b_y = track_y.b
-                k_y = track_y.k
-                ax_zy.plot(z, k_y * z + b_y, zorder=100)
+                hits = track.hits
+                map(used_hits.append, (hit["detID"] for hit in hits))
+                z = np.array([hit["z"] for hit in hits])
+                x = np.array([(hit["xtop"] + hit["xbot"]) / 2 for hit in hits])
+                y = np.array([(hit["ytop"] + hit["ybot"]) / 2 for hit in hits])
+                x_err = np.array([abs(hit["xtop"] - hit["xbot"]) / 2 for hit in hits])
+                y_err = np.array([abs(hit["ytop"] - hit["ybot"]) / 2 for hit in hits])
+                ax_xz.errorbar(x, z, xerr=x_err, fmt=".")
+                ax_zy.errorbar(z, y, yerr=y_err, fmt=".")
+                ax_xy.errorbar(x, y, xerr=x_err, yerr=y_err, fmt=".")
+                if track.b_x:
+                    b_x = track.b_x
+                    k_x = track.k_x
+                    ax_xz.plot(k_x * z + b_x, z, zorder=100)
+                if track.b_y:
+                    b_y = track.b_y
+                    k_y = track.k_y
+                    ax_zy.plot(z, k_y * z + b_y, zorder=100)
         if args.display:
-            unused_hits = [
-                hit
-                for hit in hits
-                if hit["detID"] not in used_hits_x and hit["detID"] not in used_hits_y
-            ]
+            unused_hits = [hit for hit in hits if hit["detID"] not in used_hits]
             z = np.array([hit["z"] for hit in unused_hits])
             x = np.array([(hit["xtop"] + hit["xbot"]) / 2 for hit in unused_hits])
             y = np.array([(hit["ytop"] + hit["ybot"]) / 2 for hit in unused_hits])
+            x_err = np.array(
+                [abs(hit["xtop"] - hit["xbot"]) / 2 for hit in unused_hits]
+            )
+            y_err = np.array(
+                [abs(hit["ytop"] - hit["ybot"]) / 2 for hit in unused_hits]
+            )
             ax_xy.scatter(x, y, marker=".", color="gray", zorder=0.5)
             ax_xz.scatter(x, z, marker=".", color="gray", zorder=0.5)
             ax_zy.scatter(z, y, marker=".", color="gray", zorder=0.5)
+            ax_xz.errorbar(x, z, xerr=x_err, fmt=".", color="gray", zorder=0.5)
+            ax_zy.errorbar(z, y, yerr=y_err, fmt=".", color="gray", zorder=0.5)
+            ax_xy.errorbar(
+                x, y, xerr=x_err, yerr=y_err, fmt=".", color="gray", zorder=0.5
+            )
             plt.show()
         out_tree.Fill()
         track_candidates.clear()
