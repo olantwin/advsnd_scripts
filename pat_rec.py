@@ -526,7 +526,7 @@ def match_tracks(tracks_x, tracks_y):
                 logging.warning(e)
         tracks_3d.append(track.to_3d())
 
-    return reduce_clones_using_one_track_per_hit(tracks_3d)
+    return reduce_clones_using_one_track_per_hit(tracks_3d, min_hits=10)
 
 
 def hit_in_window(x, y, k_bin, b_bin, window_width=1.0):
@@ -718,7 +718,7 @@ def match_segments(tracks):
         # TODO perform merge
 
     # How to deal with multiple options? chi^2?
-    return reduce_clones_using_one_track_per_hit(long_tracks)
+    return reduce_clones_using_one_track_per_hit(long_tracks, min_hits=5)
 
 
 def main():
@@ -782,7 +782,7 @@ def main():
                 "detID": hit.GetDetectorID(),
             }
             for i, hit in enumerate(event.Digi_advTargetClusters)
-            if (_ := hit.GetPosition(stop, start), True)
+            if (_ := hit.GetPosition(stop, start), True) and hit.GetSignal() > 0.0001
         ]
         recognized_tracks = artificial_retina_pattern_recognition(hits)
         ax_xy, ax_xz, ax_zy = None, None, None
