@@ -52,7 +52,9 @@ def track_fit(track, fitter, strict=False):
         measurement.setPlane(
             ROOT.genfit.SharedPlanePtr(
                 ROOT.genfit.DetPlane(
-                    ROOT.TVector3(0, 0, hit_zs[i]), ROOT.TVector3(0, 0, 1)
+                    ROOT.TVector3(0, 0, hit_zs[i]),
+                    ROOT.TVector3(1, 0, 0),
+                    ROOT.TVector3(0, 1, 0),
                 )
             ),
             int(det_ids[i]),
