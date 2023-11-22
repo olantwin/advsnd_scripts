@@ -49,6 +49,8 @@ def main():
 
     inputfile = ROOT.TFile.Open(args.inputfile, "read")
     tree = inputfile.cbmsim
+    if tree.GetBranch("Reco_MuonTracks"):
+        tree.SetAlias("genfit_tracks", "Reco_MuonTracks")
 
     outputfile = ROOT.TFile.Open(args.outputfile, "recreate")
     out_tree = tree.CloneTree(0)
