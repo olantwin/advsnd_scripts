@@ -49,7 +49,6 @@ def main():
 
     inputfile = ROOT.TFile.Open(args.inputfile, "read")
     tree = inputfile.cbmsim
-    tree.SetBranchStatus("track_candidates", 0)
 
     outputfile = ROOT.TFile.Open(args.outputfile, "recreate")
     out_tree = tree.CloneTree(0)
