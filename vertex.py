@@ -57,12 +57,11 @@ def main():
     vertex_factory = ROOT.genfit.GFRaveVertexFactory(1)
     vertex_factory.setMethod("avr")
     vertices = ROOT.std.vector("genfit::GFRaveVertex*")()
-    vertices_branch = out_tree.Branch("RAVE_vertices", vertices)
+    out_tree.Branch("RAVE_vertices", vertices)
 
     for event in tqdm(tree, desc="Event loop: ", total=tree.GetEntries()):
         vertices.clear()
         vertex_factory.findVertices(vertices, event.genfit_tracks)
-        vertices_branch.Fill()
         out_tree.Fill()
     out_tree.Write()
     outputfile.Write()
