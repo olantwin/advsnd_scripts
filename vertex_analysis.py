@@ -31,7 +31,7 @@ bool is_fiducial_y(const TVector3 &vtx) {
 ROOT.gInterpreter.Declare(
     """
 bool is_fiducial_z(const TVector3 &vtx) {
-    return vtx.Z() < -90;  // cm
+    return (vtx.Z() < -90) && (vtx.Z() > -150);  // cm
 }
 """
 )
@@ -102,6 +102,16 @@ def main():
     ut.bookHist(h, "vertex_z", "Vertex position; z [cm]", 100, -150, -70)
     ut.bookHist(h, "vertex_dz", "Vertex residual; #deltaz [cm]", 100, -10, -10)
 
+    cuts = {
+        # "all": 3525,
+        # "secondary #mu": 2682,
+        "true PV in FV": 568,
+        "at least two track candidates": 0,  # initialise
+        "at least two tracks": 0,  # initialise
+        "at least one vertex": 0,  # initialise
+        "vertex in FV": 0,  # initialise
+    }
+
     for event in tqdm(tree, desc="Event loop: ", total=tree.GetEntries()):
         true_PV = ROOT.TVector3()
         for true_track in event.MCTrack:
@@ -115,8 +125,16 @@ def main():
                         true_track.GetStartZ(),
                     )
 
+        if len(event.track_candidates) >= 2:
+            cuts["at least two track candidates"] += 1
+
+        if len(event.genfit_tracks) >= 2:
+            cuts["at least two tracks"] += 1
+
         # Count vertices
-        h["n_vertices"].Fill(len(event.RAVE_vertices))
+        if n_vertices := len(event.RAVE_vertices):
+            cuts["at least one vertex"] += 1
+            h["n_vertices"].Fill(n_vertices)
         PV = None
         n_fiducial = 0
         for vertex in event.RAVE_vertices:
@@ -132,9 +150,35 @@ def main():
             h["vertex_z"].Fill(pos.Z())
             h["n_tracks"].Fill(vertex.getNTracks())
         if PV:
+            cuts["vertex in FV"] += 1
             h["vertex_dxy"].Fill(PV.X() - true_PV.X(), PV.Y() - true_PV.Y())
             h["vertex_dz"].Fill(PV.Z() - true_PV.Z())
         h["n_vertices_fiducial"].Fill(n_fiducial)
+    # Cutflow histogram
+    h["cutflow"] = ROOT.TH1F("cutflow", "Cut yields", len(cuts), 0, len(cuts))
+    h["cuteff"] = ROOT.TH1F("cuteff", "Cut efficiency", len(cuts), 0, len(cuts))
+    h["cutcum"] = ROOT.TH1F("cutcum", "Cuts cum. eff.", len(cuts), 0, len(cuts))
+    for i, cutname in enumerate(cuts.keys()):
+        if i == 0:
+            h["cutflow"].SetAxisRange(0, cuts[cutname] * 1.05, "Y")
+        h["cutflow"].GetXaxis().SetBinLabel(i + 1, cutname)
+        h["cutflow"].SetBinContent(i + 1, cuts[cutname])
+        h["cuteff"].GetXaxis().SetBinLabel(i + 1, cutname)
+        h["cuteff"].SetBinContent(
+            i + 1,
+            (h["cutflow"].GetBinContent(i + 1) / h["cutflow"].GetBinContent(i))
+            if i
+            else 1,
+        )
+        h["cutcum"].GetXaxis().SetBinLabel(i + 1, cutname)
+        h["cutcum"].SetBinContent(
+            i + 1,
+            (h["cuteff"].GetBinContent(i + 1) * h["cutcum"].GetBinContent(i))
+            if i
+            else 1,
+        )
+    h["cuteff"].SetAxisRange(0, 1.05, "Y")
+    h["cutcum"].SetAxisRange(0, 1.05, "Y")
 
     hists = ROOT.TFile.Open(args.outputfile, "recreate")
     for key, hist in h.items():
