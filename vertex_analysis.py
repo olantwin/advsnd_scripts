@@ -85,6 +85,8 @@ def main():
     )
     # ut.bookHist(h, "n_tracks", "Number of tracks per vertex", 100, 1.5, 102.5)
     ut.bookHist(h, "n_tracks", "Number of tracks per vertex", 100, -1, -1)
+    ut.bookHist(h, "n_tracks_event", "Number of tracks per event", 100, -1, -1)
+    ut.bookHist(h, "n_hits_track", "Number of hits per track", 100, -1, -1)
     ut.bookHist(
         h, "vertex_xy", "Vertex position; x [cm]; y [cm]", 100, -60, 10, 100, 0, 70
     )
@@ -99,8 +101,25 @@ def main():
         -10,
         10,
     )
+    ut.bookHist(
+        h,
+        "vertex_dxy_zoom",
+        "Vertex residual; #deltax [cm]; #deltay [cm]",
+        20,
+        -1,
+        1,
+        20,
+        -1,
+        1,
+    )
     ut.bookHist(h, "vertex_z", "Vertex position; z [cm]", 100, -150, -70)
+    ut.bookHist(h, "vertex_chi2", "Vertex #chi^{2}; #chi^{2}", 100, -1, -1)
+    ut.bookHist(h, "vertex_ndf", "Vertex NDF; NDF", 100, -1, -1)
+    ut.bookHist(h, "vertex_chi2ndf", "Vertex #chi^{2}/NDF; #chi^{2}/NDF", 100, -1, -1)
+    ut.bookHist(h, "vertex_dx", "Vertex residual; #deltax [cm]", 100, -1, 1)
+    ut.bookHist(h, "vertex_dy", "Vertex residual; #deltay [cm]", 100, -1, 1)
     ut.bookHist(h, "vertex_dz", "Vertex residual; #deltaz [cm]", 100, -10, -10)
+    ut.bookHist(h, "vertex_dz_zoom", "Vertex residual; #deltaz [cm]", 20, -1, 1)
 
     cuts = {
         # "all": 3525,
@@ -109,6 +128,7 @@ def main():
         "at least two track candidates": 0,  # initialise
         "at least two tracks": 0,  # initialise
         "at least one vertex": 0,  # initialise
+        "good vertex": 0,  # initialise
         "vertex in FV": 0,  # initialise
     }
 
@@ -128,8 +148,12 @@ def main():
         if len(event.track_candidates) >= 2:
             cuts["at least two track candidates"] += 1
 
-        if len(event.genfit_tracks) >= 2:
+        if (n_tracks := len(event.genfit_tracks)) >= 2:
             cuts["at least two tracks"] += 1
+            h["n_tracks_event"].Fill(n_tracks)
+
+        for track in event.genfit_tracks:
+            h["n_hits_track"].Fill(track.getNumPoints())
 
         # Count vertices
         if n_vertices := len(event.RAVE_vertices):
@@ -137,7 +161,20 @@ def main():
             h["n_vertices"].Fill(n_vertices)
         PV = None
         n_fiducial = 0
+        n_good_vertices = 0
         for vertex in event.RAVE_vertices:
+            chi2 = vertex.getChi2()
+            if not (0 < chi2 < 200):
+                continue
+            h["vertex_chi2"].Fill(chi2)
+            ndf = vertex.getNdf()
+            if not (0 < ndf):
+                continue
+            h["vertex_ndf"].Fill(ndf)
+            if (chi2 / ndf) > 1:
+                continue
+            h["vertex_chi2ndf"].Fill(chi2 / ndf)
+            n_good_vertices += 1
             pos = vertex.getPos()
             # Fiducial cut
             if ROOT.is_fiducial(pos):
@@ -149,10 +186,20 @@ def main():
             h["vertex_xy"].Fill(pos.X(), pos.Y())
             h["vertex_z"].Fill(pos.Z())
             h["n_tracks"].Fill(vertex.getNTracks())
+            chi2 = vertex.getChi2()
+            h["vertex_chi2"].Fill(chi2)
+            ndf = vertex.getNdf()
+            h["vertex_chi2ndf"].Fill(chi2 / ndf)
+        if n_good_vertices:
+            cuts["good vertex"] += 1
         if PV:
             cuts["vertex in FV"] += 1
+            h["vertex_dx"].Fill(PV.X() - true_PV.X())
+            h["vertex_dy"].Fill(PV.Y() - true_PV.Y())
             h["vertex_dxy"].Fill(PV.X() - true_PV.X(), PV.Y() - true_PV.Y())
+            h["vertex_dxy_zoom"].Fill(PV.X() - true_PV.X(), PV.Y() - true_PV.Y())
             h["vertex_dz"].Fill(PV.Z() - true_PV.Z())
+            h["vertex_dz_zoom"].Fill(PV.Z() - true_PV.Z())
         h["n_vertices_fiducial"].Fill(n_fiducial)
     # Cutflow histogram
     h["cutflow"] = ROOT.TH1F("cutflow", "Cut yields", len(cuts), 0, len(cuts))
