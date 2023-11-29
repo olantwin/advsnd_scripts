@@ -132,7 +132,7 @@ def main():
     cuts = {
         # "all": 3525,
         # "secondary #mu": 2682,
-        "true PV in FV": 568,
+        "true primary vertex in FV": 568,
         "at least two track candidates": 0,  # initialise
         "at least two tracks": 0,  # initialise
         "at least one vertex": 0,  # initialise
@@ -141,13 +141,13 @@ def main():
     }
 
     for event in tqdm(tree, desc="Event loop: ", total=tree.GetEntries()):
-        true_PV = ROOT.TVector3()
+        true_primary_vertex = ROOT.TVector3()
         for true_track in event.MCTrack:
             if true_track.GetMotherId() == 0:
                 # Find primary muon
                 if abs(true_track.GetPdgCode()) == 13:
                     # Find true primary vertex
-                    true_PV = ROOT.TVector3(
+                    true_primary_vertex = ROOT.TVector3(
                         true_track.GetStartX(),
                         true_track.GetStartY(),
                         true_track.GetStartZ(),
@@ -173,7 +173,7 @@ def main():
             h["n_vertices"].Fill(n_vertices)
         else:
             continue
-        PV = None
+        primary_vertex = None
         n_fiducial = 0
         n_good_vertices = 0
         for vertex in event.RAVE_vertices:
@@ -195,8 +195,8 @@ def main():
                 n_fiducial += 1
             else:
                 continue
-            if not PV or pos.Z() < PV.Z():
-                PV = pos
+            if not primary_vertex or pos.Z() < primary_vertex.Z():
+                primary_vertex = pos
             h["vertex_xy"].Fill(pos.X(), pos.Y())
             h["vertex_z"].Fill(pos.Z())
             h["n_tracks"].Fill(vertex.getNTracks())
@@ -208,18 +208,24 @@ def main():
                 track_pars = vertex.getParameters(i)
                 ip = IP(track_pars, pos)
                 h["vertex_ip"].Fill(ip)
-                true_ip = IP(track_pars, true_PV)
+                true_ip = IP(track_pars, true_primary_vertex)
                 h["vertex_ip_true"].Fill(true_ip)
         if n_good_vertices:
             cuts["good vertex"] += 1
-        if PV:
+        if primary_vertex:
             cuts["vertex in FV"] += 1
-            h["vertex_dx"].Fill(PV.X() - true_PV.X())
-            h["vertex_dy"].Fill(PV.Y() - true_PV.Y())
-            h["vertex_dxy"].Fill(PV.X() - true_PV.X(), PV.Y() - true_PV.Y())
-            h["vertex_dxy_zoom"].Fill(PV.X() - true_PV.X(), PV.Y() - true_PV.Y())
-            h["vertex_dz"].Fill(PV.Z() - true_PV.Z())
-            h["vertex_dz_zoom"].Fill(PV.Z() - true_PV.Z())
+            h["vertex_dx"].Fill(primary_vertex.X() - true_primary_vertex.X())
+            h["vertex_dy"].Fill(primary_vertex.Y() - true_primary_vertex.Y())
+            h["vertex_dxy"].Fill(
+                primary_vertex.X() - true_primary_vertex.X(),
+                primary_vertex.Y() - true_primary_vertex.Y(),
+            )
+            h["vertex_dxy_zoom"].Fill(
+                primary_vertex.X() - true_primary_vertex.X(),
+                primary_vertex.Y() - true_primary_vertex.Y(),
+            )
+            h["vertex_dz"].Fill(primary_vertex.Z() - true_primary_vertex.Z())
+            h["vertex_dz_zoom"].Fill(primary_vertex.Z() - true_primary_vertex.Z())
         h["n_vertices_fiducial"].Fill(n_fiducial)
     # Cutflow histogram
     h["cutflow"] = ROOT.TH1F("cutflow", "Cut yields", len(cuts), 0, len(cuts))
