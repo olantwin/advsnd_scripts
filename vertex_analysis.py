@@ -4,7 +4,6 @@ import argparse
 from tqdm import tqdm
 import ROOT
 import rootUtils as ut
-import SNDstyle
 
 ROOT.gInterpreter.Declare(
     """
@@ -45,6 +44,12 @@ bool is_fiducial(const TVector3 &vtx) {
 )
 
 
+def IP(track, vertex):
+    daughter_start = track.getPos()
+    daughter_dir = track.getMom()
+    return (vertex - daughter_start).Cross(daughter_dir).Mag() / daughter_dir.Mag()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Script for AdvSND tracking analysis.")
     parser.add_argument(
@@ -76,7 +81,8 @@ def main():
     geo = f.FAIRGeom  # noqa: F841
 
     if args.plots:
-        SNDstyle.init_style()
+        # SNDstyle.init_style()
+        pass
 
     h = {}
     ut.bookHist(h, "n_vertices", "Number of vertices", 10, -0.5, 9.5)
@@ -87,6 +93,8 @@ def main():
     ut.bookHist(h, "n_tracks", "Number of tracks per vertex", 100, -1, -1)
     ut.bookHist(h, "n_tracks_event", "Number of tracks per event", 100, -1, -1)
     ut.bookHist(h, "n_hits_track", "Number of hits per track", 100, -1, -1)
+    ut.bookHist(h, "vertex_ip", "IP wrt. reconstructed vertex; IP [cm]", 100, 0, 1)
+    ut.bookHist(h, "vertex_ip_true", "IP wrt. true vertex; IP [cm]", 100, 0, 1)
     ut.bookHist(
         h, "vertex_xy", "Vertex position; x [cm]; y [cm]", 100, -60, 10, 100, 0, 70
     )
@@ -147,10 +155,14 @@ def main():
 
         if len(event.track_candidates) >= 2:
             cuts["at least two track candidates"] += 1
+        else:
+            continue
 
         if (n_tracks := len(event.genfit_tracks)) >= 2:
             cuts["at least two tracks"] += 1
             h["n_tracks_event"].Fill(n_tracks)
+        else:
+            continue
 
         for track in event.genfit_tracks:
             h["n_hits_track"].Fill(track.getNumPoints())
@@ -159,12 +171,14 @@ def main():
         if n_vertices := len(event.RAVE_vertices):
             cuts["at least one vertex"] += 1
             h["n_vertices"].Fill(n_vertices)
+        else:
+            continue
         PV = None
         n_fiducial = 0
         n_good_vertices = 0
         for vertex in event.RAVE_vertices:
             chi2 = vertex.getChi2()
-            if not (0 < chi2 < 200):
+            if not (0 < chi2 < 1000):
                 continue
             h["vertex_chi2"].Fill(chi2)
             ndf = vertex.getNdf()
@@ -190,6 +204,12 @@ def main():
             h["vertex_chi2"].Fill(chi2)
             ndf = vertex.getNdf()
             h["vertex_chi2ndf"].Fill(chi2 / ndf)
+            for i in range(vertex.getNTracks()):
+                track_pars = vertex.getParameters(i)
+                ip = IP(track_pars, pos)
+                h["vertex_ip"].Fill(ip)
+                true_ip = IP(track_pars, true_PV)
+                h["vertex_ip_true"].Fill(true_ip)
         if n_good_vertices:
             cuts["good vertex"] += 1
         if PV:
@@ -224,6 +244,8 @@ def main():
             if i
             else 1,
         )
+        if not cuts[cutname]:
+            break
     h["cuteff"].SetAxisRange(0, 1.05, "Y")
     h["cutcum"].SetAxisRange(0, 1.05, "Y")
 
