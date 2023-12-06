@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from collections import Counter
 from tqdm import tqdm
 import ROOT
 import rootUtils as ut
@@ -42,6 +43,43 @@ bool is_fiducial(const TVector3 &vtx) {
 }
 """
 )
+
+
+def find_true_vertex(track, event):
+    """Find true vertex for truth matched track.
+
+    returns TVector3 or None
+    """
+    track_id = track.getMcTrackId()
+    if track_id >= 0:
+        mc_track = event.MCTrack[track_id]
+        true_vertex = ROOT.TVector3()
+        mc_track.GetStartVertex(true_vertex)
+        return true_vertex
+    return None
+
+
+def find_MC_track(track, event):
+    """Match track to MC track.
+
+    returns MC track index or -1
+    """
+    link = event.Digi_TargetClusterHits2MCPoints[0]
+    points = track.getPoints()
+    track_ids = []
+    for p in points:
+        wlist = link.wList(p.getRawMeasurement().getDetId())
+        for index, _ in wlist:
+            point = event.AdvTargetPoint[index]
+            track_id = point.GetTrackID()
+            if track_id == -2:
+                continue
+            track_ids.append(track_id)
+    most_common_track, count = Counter(track_ids).most_common(1)[0]
+    if count >= len(points) * 0.7:
+        # truth match if ≥ 70 % of hits are related to a single MCTrack
+        return most_common_track
+    return -1
 
 
 def IP(track, vertex):
