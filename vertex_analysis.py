@@ -164,6 +164,22 @@ def main():
     )
     ut.bookHist(h, "n_hits_track", "Number of hits per track", 100, -1, -1)
     ut.bookHist(h, "vertex_ip", "IP wrt. reconstructed vertex; IP [cm]", 100, 0, 1)
+    ut.bookHist(
+        h,
+        "vertex_dist_to_closest_point",
+        "Vertex distance to closest hit used for tracking; min(d) [cm]",
+        100,
+        -1,
+        -1,
+    )
+    ut.bookHist(
+        h,
+        "vertex_dist_to_points",
+        "Vertex distance to hits used for tracking; d [cm]",
+        100,
+        -1,
+        -1,
+    )
     ut.bookHist(h, "vertex_ip_true", "IP wrt. true vertex; IP [cm]", 100, 0, 1)
     ut.bookHist(
         h, "vertex_xy", "Vertex position; x [cm]; y [cm]", 100, -60, 10, 100, 0, 70
@@ -305,6 +321,7 @@ def main():
             h["vertex_chi2"].Fill(chi2)
             ndf = vertex.getNdf()
             h["vertex_chi2ndf"].Fill(chi2 / ndf)
+            point_distances = []
             for i in range(vertex.getNTracks()):
                 track_pars = vertex.getParameters(i)
                 ip = IP(track_pars, pos)
@@ -312,15 +329,20 @@ def main():
                 track = track_pars.getTrack()
                 if track.getMcTrackId() == -1:
                     continue
+                for j in range(track.getNumPoints()):
+                    point = track.getFittedState(j).getPos()
+                    dist = (point - pos).Mag()
+                    point_distances.append(dist)
+                    h["vertex_dist_to_points"].Fill(dist)
                 true_vertex = find_true_vertex(track, event)
                 if true_vertex:
                     true_ip = IP(track_pars, true_vertex)
                     h["vertex_ip_true"].Fill(true_ip)
+                h["vertex_dist_to_closest_point"].Fill(min(point_distances))
             if true_vertex := match_vertex(vertex, event):
                 h["vertex_matched_dx"].Fill(pos.X() - true_vertex.X())
                 h["vertex_matched_dy"].Fill(pos.Y() - true_vertex.Y())
                 h["vertex_matched_dz"].Fill(pos.Z() - true_vertex.Z())
-
 
         if n_good_vertices:
             cuts["good vertex"] += 1
