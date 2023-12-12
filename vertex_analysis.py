@@ -75,11 +75,35 @@ def find_MC_track(track, event):
             if track_id == -2:
                 continue
             track_ids.append(track_id)
+    if not track_ids:
+        return -1
     most_common_track, count = Counter(track_ids).most_common(1)[0]
     if count >= len(points) * 0.7:
         # truth match if ≥ 70 % of hits are related to a single MCTrack
         return most_common_track
     return -1
+
+
+def match_vertex(vertex, event):
+    """Match vertex to start of its matched MC tracks.
+
+    returns TVector3 or None
+    """
+    tracks = [vertex.getParameters(i).getTrack() for i in range(vertex.getNTracks())]
+    matched_tracks = [track for track in tracks if track.getMcTrackId() >= 0]
+    if len(matched_tracks) < 2:
+        return None
+    mc_tracks = [event.MCTrack[track.getMcTrackId()] for track in matched_tracks]
+    mother_ids = [track.GetMotherId() for track in mc_tracks]
+    most_common_mother, count = Counter(mother_ids).most_common(1)[0]
+    if count >= len(matched_tracks) * 0.7:
+        # truth match if ≥ 70 % of hits are related to a single MCTrack
+        for mc_track in mc_tracks:
+            if mc_track.GetMotherId() == most_common_mother:
+                true_vertex = ROOT.TVector3()
+                mc_track.GetStartVertex(true_vertex)
+                return true_vertex
+    return None
 
 
 def IP(track, vertex):
@@ -130,6 +154,14 @@ def main():
     # ut.bookHist(h, "n_tracks", "Number of tracks per vertex", 100, 1.5, 102.5)
     ut.bookHist(h, "n_tracks", "Number of tracks per vertex", 100, -1, -1)
     ut.bookHist(h, "n_tracks_event", "Number of tracks per event", 100, -1, -1)
+    ut.bookHist(
+        h,
+        "n_tracks_matched_event",
+        "Number of truth matched tracks per event",
+        50,
+        -0.5,
+        49.5,
+    )
     ut.bookHist(h, "n_hits_track", "Number of hits per track", 100, -1, -1)
     ut.bookHist(h, "vertex_ip", "IP wrt. reconstructed vertex; IP [cm]", 100, 0, 1)
     ut.bookHist(h, "vertex_ip_true", "IP wrt. true vertex; IP [cm]", 100, 0, 1)
@@ -167,6 +199,31 @@ def main():
     ut.bookHist(h, "vertex_dz", "Vertex residual; #deltaz [cm]", 100, -10, -10)
     ut.bookHist(h, "vertex_dz_zoom", "Vertex residual; #deltaz [cm]", 20, -1, 1)
 
+    ut.bookHist(
+        h,
+        "vertex_matched_dx",
+        "Vertex residual (truth matched); #deltax [cm]",
+        100,
+        -1,
+        1,
+    )
+    ut.bookHist(
+        h,
+        "vertex_matched_dy",
+        "Vertex residual (truth matched); #deltay [cm]",
+        100,
+        -1,
+        1,
+    )
+    ut.bookHist(
+        h,
+        "vertex_matched_dz",
+        "Vertex residual (truth matched); #deltaz [cm]",
+        100,
+        -10,
+        -10,
+    )
+
     cuts = {
         # "all": 3525,
         # "secondary #mu": 2682,
@@ -202,8 +259,14 @@ def main():
         else:
             continue
 
+        matched = 0
         for track in event.genfit_tracks:
             h["n_hits_track"].Fill(track.getNumPoints())
+            track_id = find_MC_track(track, event)
+            track.setMcTrackId(track_id)
+            if track_id >= 0:
+                matched += 1
+        h["n_tracks_matched_event"].Fill(matched)
 
         # Count vertices
         if n_vertices := len(event.RAVE_vertices):
@@ -246,8 +309,19 @@ def main():
                 track_pars = vertex.getParameters(i)
                 ip = IP(track_pars, pos)
                 h["vertex_ip"].Fill(ip)
-                true_ip = IP(track_pars, true_primary_vertex)
-                h["vertex_ip_true"].Fill(true_ip)
+                track = track_pars.getTrack()
+                if track.getMcTrackId() == -1:
+                    continue
+                true_vertex = find_true_vertex(track, event)
+                if true_vertex:
+                    true_ip = IP(track_pars, true_vertex)
+                    h["vertex_ip_true"].Fill(true_ip)
+            if true_vertex := match_vertex(vertex, event):
+                h["vertex_matched_dx"].Fill(pos.X() - true_vertex.X())
+                h["vertex_matched_dy"].Fill(pos.Y() - true_vertex.Y())
+                h["vertex_matched_dz"].Fill(pos.Z() - true_vertex.Z())
+
+
         if n_good_vertices:
             cuts["good vertex"] += 1
         if primary_vertex:
