@@ -239,6 +239,14 @@ def main():
         -10,
         -10,
     )
+    ut.bookHist(
+        h,
+        "vertex_track_true_momentum",
+        "True momentum of truth matched track for truth matched vertex; P [GeV]",
+        100,
+        -1,
+        -1,
+    )
 
     cuts = {
         # "all": 3525,
@@ -338,6 +346,9 @@ def main():
                 if true_vertex:
                     true_ip = IP(track_pars, true_vertex)
                     h["vertex_ip_true"].Fill(true_ip)
+                    track_id = track.getMcTrackId()
+                    mc_track = event.MCTrack[track_id]
+                    h["vertex_track_true_momentum"].Fill(mc_track.GetP())
                 h["vertex_dist_to_closest_point"].Fill(min(point_distances))
             if true_vertex := match_vertex(vertex, event):
                 h["vertex_matched_dx"].Fill(pos.X() - true_vertex.X())
