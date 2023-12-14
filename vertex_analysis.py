@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Analyse performance of vertexing."""
 
 import argparse
 from tqdm import tqdm
@@ -60,13 +61,15 @@ def find_true_vertex(track, event):
 
 
 def IP(track, vertex):
+    """Calculate IP."""
     daughter_start = track.getPos()
     daughter_dir = track.getMom()
     return (vertex - daughter_start).Cross(daughter_dir).Mag() / daughter_dir.Mag()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Script for AdvSND tracking analysis.")
+    """Analyse performance of vertexing."""
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "inputfile",
         help="""Simulation results to use as input. """

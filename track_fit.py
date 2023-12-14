@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Standalone tracking implementation"""
+"""Standalone tracking implementation."""
 
 import argparse
 import logging
@@ -13,7 +13,7 @@ from pat_rec import Track
 
 
 def track_fit(track, fitter, strict=False):
-    """Fit a single track candidate in 3d (also works for 2d)"""
+    """Fit a single track candidate in 3d (also works for 2d)."""
     pos = ROOT.TVector3(0, 0, 0.0)
     mom = ROOT.TVector3(0, 0, 100.0)  # default track with high momentum
 
@@ -83,12 +83,13 @@ def track_fit(track, fitter, strict=False):
 
 
 def isGood(track):
+    """Apply track quality cuts (placeholder)."""
     return True
 
 
 def main():
-    """Fit track candidates"""
-    parser = argparse.ArgumentParser(description="Script for AdvSND analysis.")
+    """Fit track candidates."""
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "-f",
         "--inputfile",

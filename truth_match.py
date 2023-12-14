@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Standalone truth matching"""
+"""Standalone truth matching."""
 
 import argparse
 import logging
@@ -56,10 +56,8 @@ def match_vertex(vertex, event):
 
 
 def main():
-    """Truth match tracks and vertices"""
-    parser = argparse.ArgumentParser(
-        description="Script for truth matching for AdvSND."
-    )
+    """Truth match tracks and vertices."""
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "-f",
         "--inputfile",

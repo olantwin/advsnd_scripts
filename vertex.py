@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Standalone vertexing implementation"""
+"""Standalone vertexing implementation."""
 
 import argparse
 import logging
@@ -8,8 +8,8 @@ import ROOT
 
 
 def main():
-    """Vertex tracks"""
-    parser = argparse.ArgumentParser(description="Script for AdvSND analysis.")
+    """Vertex tracks."""
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "-f",
         "--inputfile",

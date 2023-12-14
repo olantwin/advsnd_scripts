@@ -971,7 +971,7 @@ def match_segments(tracks):
 
 def main():
     """Preselect events using second tree with cuts."""
-    parser = argparse.ArgumentParser(description="Script for AdvSND analysis.")
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "-f",
         "--inputfile",

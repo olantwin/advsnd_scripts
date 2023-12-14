@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Implement a very simple event display."""
 
 import argparse
 import math
@@ -7,7 +8,8 @@ import matplotlib.pyplot as plt
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Script for AdvSND tracking studies.")
+    """Implement a very simple event display."""
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "inputfile",
         help="""Simulation results to use as input. """

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Analyse track residuals and efficiencies."""
 
 import argparse
 import ROOT
@@ -32,6 +33,7 @@ GEOROTATION.SetMatrix(ROTATION)
 
 
 def residual(a, b):
+    """Calculate a rotation-corrected residual."""
     diff = a - b
     diff_rot = array([0.0, 0.0, 0.0])
     GEOROTATION.MasterToLocalVect(diff, diff_rot)
@@ -39,6 +41,7 @@ def residual(a, b):
 
 
 def cluster_analysis(event, cluster, prefix="", trackpoint=None):
+    """Perform analysis of clustering and tracks."""
     link = event.Digi_TargetClusterHits2MCPoints[0]
     detID = cluster.GetDetectorID()
     if f"stripmap_{cluster.isVertical()}" not in h:
@@ -102,9 +105,10 @@ def cluster_analysis(event, cluster, prefix="", trackpoint=None):
 
 
 def main():
+    """Analyse track residuals and efficiencies."""
     global track_residuals_x
     global track_residuals_y
-    parser = argparse.ArgumentParser(description="Script for AdvSND tracking analysis.")
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "inputfile",
         help="""Simulation results to use as input. """

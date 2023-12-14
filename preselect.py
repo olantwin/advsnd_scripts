@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preselect events using second tree with cuts"""
+"""Preselect events using second tree with cuts."""
 
 import argparse
 from tqdm import tqdm
@@ -7,8 +7,8 @@ import ROOT
 
 
 def main():
-    """Preselect events using second tree with cuts"""
-    parser = argparse.ArgumentParser(description="Script for AdvSND analysis.")
+    """Preselect events using second tree with cuts."""
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "-f",
         "--inputfile",
