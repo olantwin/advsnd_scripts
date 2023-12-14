@@ -1019,7 +1019,7 @@ def main():
     track_candidates = ROOT.std.vector("std::vector<int>")()
     out_tree.Branch("track_candidates", track_candidates)
     n = 0
-    for event in tqdm(tree, desc="Event loop: ", total=tree.GetEntries()):
+    for event in tqdm(tree, desc="Event loop: ", total=args.nEvents):
         stop = ROOT.TVector3()
         start = ROOT.TVector3()
         hits = [
@@ -1100,9 +1100,9 @@ def main():
             plt.show()
         out_tree.Fill()
         track_candidates.clear()
-        if n > args.nEvents:
-            break
         n += 1
+        if n == args.nEvents:
+            break
     out_tree.Write()
     outputfile.Write()
 
