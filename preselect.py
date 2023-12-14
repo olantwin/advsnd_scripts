@@ -46,6 +46,8 @@ def main():
             selected += 1
             out_tree.Fill()
     out_tree.Write()
+    branch_list = inputfile.BranchList
+    outputfile.WriteObject(branch_list, "BranchList")
     outputfile.Write()
     print(f"Selected {selected} events out of {nentries}.")
 
