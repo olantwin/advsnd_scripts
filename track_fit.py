@@ -172,6 +172,9 @@ def main():
             display.addEvent(tracks)
         out_tree.Fill()
     out_tree.Write()
+    branch_list = inputfile.BranchList
+    branch_list.Add(ROOT.TObjString("genfit_tracks"))
+    outputfile.WriteObject(branch_list, "BranchList")
     outputfile.Write()
     if display:
         display.open()

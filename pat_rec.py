@@ -1104,6 +1104,9 @@ def main():
         if n == args.nEvents:
             break
     out_tree.Write()
+    branch_list = inputfile.BranchList
+    branch_list.Add(ROOT.TObjString("track_candidates"))
+    outputfile.WriteObject(branch_list, "BranchList")
     outputfile.Write()
 
 
