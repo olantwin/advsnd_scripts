@@ -14,3 +14,7 @@ repos:
   - id: ruff
     types_or: [python, pyi, jupyter]
   - id: ruff-format
+- repo: https://github.com/PyCQA/pydocstyle.git
+  rev: 6.3.0
+  hooks:
+  - id: pydocstyle
