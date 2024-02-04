@@ -42,8 +42,14 @@ def match_vertex(vertex, event):
     matched_tracks = [track for track in tracks if track.getMcTrackId() >= 0]
     if len(matched_tracks) < 2:
         return None
-    mc_tracks = [event.MCTrack[track.getMcTrackId()] for track in matched_tracks]
+    mc_tracks = [
+        event.MCTrack[track.getMcTrackId()]
+        for track in matched_tracks
+        if track.getMcTrackId() < len(event.MCTrack)
+    ]
     mother_ids = [track.GetMotherId() for track in mc_tracks]
+    if not mother_ids:
+        return None
     most_common_mother, count = Counter(mother_ids).most_common(1)[0]
     if count >= len(matched_tracks) * 0.7:
         # truth match if ≥ 70 % of hits are related to a single MCTrack
