@@ -275,7 +275,7 @@ def main():
             if ROOT.is_fiducial(pos):
                 n_fiducial += 1
             else:
-                continue
+                pass
             if not primary_vertex or pos.Z() < primary_vertex.Z():
                 primary_vertex = pos
             h["vertex_xy"].Fill(pos.X(), pos.Y())
