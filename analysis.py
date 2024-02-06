@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Analyse different layouts using MC truth."""
 
 from enum import Enum
 import argparse
@@ -27,6 +28,7 @@ DISTANCES = [7.5 * mm, 10 * mm, 12.5 * mm, 15 * mm]
 
 
 def track_separation(t1, t2, z, TYPE, **kwargs):
+    """Calculate separation between two tracks."""
     t1_start = array([t1.GetStartX(), t1.GetStartY()])
     t1_dir = array([t1.GetPx(), t1.GetPy()])
     t1_dir /= t1.GetPz()
@@ -43,6 +45,7 @@ def track_separation(t1, t2, z, TYPE, **kwargs):
 
 
 def separation_distance(t1, t2, **kwargs):
+    """Calculate distance for separation."""
     start_z = t1.GetStartZ()
     z = start_z + 1 * mm
     while not are_separate(t1, t2, z=z, **kwargs):
@@ -51,18 +54,22 @@ def separation_distance(t1, t2, **kwargs):
 
 
 def isolation_distance(track, other_tracks, **kwargs):
+    """Calculate distance for isolation."""
     return max(separation_distance(track, t, **kwargs) for t in other_tracks)
 
 
 def are_separate(t1, t2, THRESHOLD, **kwargs):
+    """Determine whether tracks are separate."""
     return track_separation(t1, t2, **kwargs) >= THRESHOLD
 
 
 def is_isolated(track, other_tracks, **kwargs):
+    """Determine whether tracks are isolated."""
     return all(are_separate(track, t, **kwargs) for t in other_tracks)
 
 
 def main():
+    """Run analysis."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "inputfiles",
