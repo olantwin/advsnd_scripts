@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pattern match to obtain track candidates using different algorithms"""
+"""Pattern match to obtain track candidates using different algorithms."""
 
 import argparse
 import logging
@@ -29,30 +29,34 @@ struct Hit {
 
 
 class Hit:
-    """Hit class for pattern matching purposes"""
+    """Hit class for pattern matching purposes."""
 
     def __init__(self, hit_id):
+        """Construct hit."""
         pass
 
 
 class Track:
-    """Describe track for pattern matching purposes"""
+    """Describe track for pattern matching purposes."""
 
     def __init__(self, hits, **kwargs):
+        """Construct track from hits."""
         self.hits = hits
         self.tracklets = []
 
 
 class Track2d(Track):
-    """Specialisation for 2d tracks"""
+    """Specialisation for 2d tracks."""
 
     def __init__(self, view, b=0, k=0, **kwargs):
+        """Construct 2d track."""
         self.view = view
         self.k = k
         self.b = b
         super().__init__(**kwargs)
 
     def __add__(self, other):
+        """Add two tracks."""
         if self.view == other.view:
             return Track2d(
                 hits=self.hits + other.hits,
@@ -71,6 +75,7 @@ class Track2d(Track):
         )
 
     def to_3d(self):
+        """Convert to 3d track."""
         return Track3d(
             hits=self.hits,
             b_x=self.b if not self.view else 0,
@@ -80,13 +85,15 @@ class Track2d(Track):
         )
 
     def extrapolate_to(self, z):
+        """Extrapolate to given z."""
         return self.k * z + self.b
 
 
 class Track3d(Track):
-    """Specialisation for 3d tracks"""
+    """Specialisation for 3d tracks."""
 
     def __init__(self, k_x=0, k_y=0, b_x=0, b_y=0, **kwargs):
+        """Construct 3d track."""
         self.k_x = k_x
         self.b_x = b_x
         self.k_y = k_y
@@ -95,6 +102,7 @@ class Track3d(Track):
 
 
 def numPlanesHit(detector_ids):
+    """Determine how many planes were hit."""
     advtarget_stations = []
 
     advtarget_stations.append(detector_ids >> 15)
@@ -105,6 +113,7 @@ def numPlanesHit(detector_ids):
 def truth_based_pattern_recognition(
     hits, links, points, max_iterations=100, min_planes_hit=3
 ):
+    """Perform simple truth-based pattern recognition (based on SND@LHC tracking)."""
     track_candidates = []
     # Loop through AdvTarget hits
     hit_collection = {
@@ -254,7 +263,7 @@ def truth_based_pattern_recognition(
             skip += 1
             continue
 
-        # TODO make track candidate
+        # Make track candidate
         hit_z = np.concatenate(
             [
                 hit_collection["pos"][2][hit_collection["vert"]],
@@ -343,7 +352,7 @@ def truth_based_pattern_recognition(
 
 
 def get_best_seed(x, y, sigma, sample_weight=None):
-    """Try to find the best initial guess for k, b and the retina value"""
+    """Try to find the best initial guess for k, b and the retina value."""
     best_retina_val = 0
     best_seed_params = [0, 0]
 
@@ -365,8 +374,8 @@ def get_best_seed(x, y, sigma, sample_weight=None):
 
 
 def retina_func(track_prams, x, y, sigma, sample_weight=None):
-    """
-    Calculates the artificial retina function value.
+    """Calculate the artificial retina function value.
+
     Parameters
     ----------
     track_prams : array-like
@@ -379,12 +388,12 @@ def retina_func(track_prams, x, y, sigma, sample_weight=None):
         Standard deviation of hit form a track.
     sample_weight : array-like
         Hit weights used during the track fit.
-    Retunrs
+
+    Returns
     -------
     retina : float
         Negative value of the artificial retina function.
     """
-
     rs = track_prams[0] * x + track_prams[1] - y
 
     if sample_weight is None:
@@ -398,8 +407,8 @@ def retina_func(track_prams, x, y, sigma, sample_weight=None):
 
 
 def retina_grad(track_prams, x, y, sigma, sample_weight=None):
-    """
-    Calculates the artificial retina gradient.
+    """Calculate the artificial retina gradient.
+
     Parameters
     ----------
     track_prams : array-like
@@ -412,12 +421,12 @@ def retina_grad(track_prams, x, y, sigma, sample_weight=None):
         Standard deviation of hit form a track.
     sample_weight : array-like
         Hit weights used during the track fit.
+
     Returns
     -------
     retina : float
         Negative value of the artificial retina gradient.
     """
-
     rs = track_prams[0] * x + track_prams[1] - y
 
     if sample_weight is None:
@@ -432,8 +441,7 @@ def retina_grad(track_prams, x, y, sigma, sample_weight=None):
 
 
 def hits_split(smeared_hits):
-    """
-    Split hits into groups of station views.
+    """Split hits into groups of station views.
 
     Parameters
     ----------
@@ -447,7 +455,6 @@ def hits_split(smeared_hits):
     hit_dict : dict
         Dictionary of hits indexed by view, column, row
     """
-
     hits_dict = {
         # view
         0: {
@@ -498,134 +505,37 @@ def hits_split(smeared_hits):
 
 
 def artificial_retina_pattern_recognition(hits):
-    """
-    Main function of track pattern recognition.
+    """Perform track pattern recognition.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     hits : list
         Hits. hits = [{'digiHit': key,
                                       'xtop': xtop, 'ytop': ytop, 'z': ztop,
                                       'xbot': xbot, 'ybot': ybot,
                                       'detID': detID}, {...}, ...]
     """
-
     recognized_tracks = {}
-
-    # if len(hits) > 1000:
-    #     print("Too many hits in the event!")
-    #     return recognized_tracks
 
     min_hits = 3
 
     # Separate hits
     hits_dict = hits_split(hits)
 
-    # plt.figure()
-    # plt.xlim(-60, 10)
-    # plt.ylim(0, 70)
     for view in (0, 1):
         recognized_tracks[view] = {}
         for column in (0, 1):
             recognized_tracks[view][column] = {}
             for row in (0, 1, 2, 3):
-                # module = column + 1 + 2 * row
-                # color = colors[module % len(colors)]
                 hits = hits_dict[view][column][row]
                 if not hits:
                     recognized_tracks[view][column][row] = []
                     continue
-                # xs = [(h["xtop"] + h["xbot"]) / 2 for h in hits]
-                # ys = [(h["ytop"] + h["ybot"]) / 2 for h in hits]
-                # if len(hits) > 1:
-                #     rect = plt.Rectangle(
-                #         (min(xs), min(ys)),
-                #         max(xs) - min(xs),
-                #         max(ys) - min(ys),
-                #         alpha=0.3,
-                #         color=color,
-                #     )
-                #     plt.gca().add_patch(rect)
-                # for hit in hits:
-                #     rect = plt.Rectangle(
-                #         (min(hit["xbot"], hit["xtop"]), min(hit["ybot"], hit["ytop"])),
-                #         abs(hit["xtop"] - hit["xbot"]),
-                #         abs(hit["ytop"] - hit["ybot"]),
-                #         alpha=0.3,
-                #         color=color,
-                #     )
-                #     plt.gca().add_patch(rect)
-                # plt.scatter(xs, ys, label=f"{view=}, {module=}", color=color)
                 recognized_tracks[view][column][
                     row
                 ] = artificial_retina_pat_rec_single_view(
                     hits, min_hits, proj="y" if view else "x"
                 )
-                # for track in recognized_tracks[view][column][row]:
-                # hits = track[f"hits_{'y' if view else 'x'}"]
-                # dict_of_hits = {k: [dic[k] for dic in hits] for k in hits[0]}
-                # rect = plt.Rectangle(
-                #     (min(dict_of_hits["xbot"]), min(dict_of_hits["ybot"])),
-                #     max(dict_of_hits["xtop"]) - min(dict_of_hits["ybot"]),
-                #     max(dict_of_hits["ytop"]) - min(dict_of_hits["ybot"]),
-                #     alpha=0.3,
-                #     color=color,
-                # )
-                # plt.gca().add_patch(rect)
-                # xs = [(h["xtop"] + h["xbot"]) / 2 for h in hits]
-                # ys = [(h["ytop"] + h["ybot"]) / 2 for h in hits]
-                # plt.scatter(xs, ys, label=f"{view=}, {module=}", color=color)
-
-    # plt.legend()
-    # plt.show()
-
-    # fig = plt.figure()
-    # gs = fig.add_gridspec(2, 2, hspace=0, wspace=0)
-    # ax_xy = fig.add_subplot(gs[1, 0])
-    # ax_xz = fig.add_subplot(gs[0, 0], sharex=ax_xy)
-    # ax_zy = fig.add_subplot(gs[1, 1], sharey=ax_xy)
-    # ax_xy.set_xlim(-60, 10)
-    # ax_xy.set_ylim(0, 70)
-    # ax_xz.set_ylim(-150, -70)
-    # ax_zy.set_xlim(-150, -70)
-    # i = 0
-    # for view in recognized_tracks:
-    #     for column in recognized_tracks[view]:
-    #         for row in recognized_tracks[view][column]:
-    #             for track in recognized_tracks[view][column][row]:
-    #                 hits = track.hits
-    #                 dict_of_hits = {k: [dic[k] for dic in hits] for k in hits[0]}
-    #                 rect = plt.Rectangle(
-    #                     (min(dict_of_hits["xbot"]), min(dict_of_hits["z"])),
-    #                     max(dict_of_hits["xtop"]) - min(dict_of_hits["xbot"]),
-    #                     max(dict_of_hits["z"]) - min(dict_of_hits["z"]),
-    #                     alpha=0.3,
-    #                     color=colors[view],
-    #                 )
-    #                 ax_xz.add_patch(rect)
-    #                 rect = plt.Rectangle(
-    #                     (min(dict_of_hits["z"]), min(dict_of_hits["ybot"])),
-    #                     max(dict_of_hits["z"]) - min(dict_of_hits["z"]),
-    #                     max(dict_of_hits["ytop"]) - min(dict_of_hits["ybot"]),
-    #                     alpha=0.3,
-    #                     color=colors[view],
-    #                 )
-    #                 ax_zy.add_patch(rect)
-    #                 rect = plt.Rectangle(
-    #                     (min(dict_of_hits["xbot"]), min(dict_of_hits["ybot"])),
-    #                     max(dict_of_hits["xtop"]) - min(dict_of_hits["xbot"]),
-    #                     max(dict_of_hits["ytop"]) - min(dict_of_hits["ybot"]),
-    #                     alpha=0.3,
-    #                     color=colors[view],
-    #                 )
-    #                 ax_xy.add_patch(rect)
-    # plt.plot(
-    #     [i, i],
-    #     [min(dict_of_hits["z"]), max(dict_of_hits["z"])],
-    #     color=colors[view],
-    # )
-    # i += 1
-    # fig.show()
 
     flat_view_x = []
     flat_view_y = []
@@ -695,7 +605,7 @@ def merge_tracks(track, other, tolerance=10):
 
 
 def match_tracks(tracks_x, tracks_y):
-    """Match tracks between views using an R-tree"""
+    """Match tracks between views using an R-tree."""
     if not tracks_x and tracks_y:
         logging.warning("Need tracks in both views to attempt matching.")
         return []
@@ -717,8 +627,6 @@ def match_tracks(tracks_x, tracks_y):
         xtops = np.array([hit["xtop"] for hit in track.hits])
         ybots = np.array([hit["ybot"] for hit in track.hits])
         ytops = np.array([hit["ytop"] for hit in track.hits])
-        # xs = (xtops + xbots)/2
-        # ys = (ytops + ybots)/2
         zs = np.array([hit["z"] for hit in track.hits])
 
         x_bottom = np.min(np.concatenate((xtops, xbots)))
@@ -778,11 +686,10 @@ def match_tracks(tracks_x, tracks_y):
 
 
 def hit_in_window(x, y, k_bin, b_bin, window_width=1.0):
-    """
-    Counts hits in a bin of track parameter space (b, k).
+    """Count hits in a bin of track parameter space (b, k).
 
     Parameters
-    ---------
+    ----------
     x : array-like
         Array of x coordinates of hits.
     y : array-like
@@ -792,12 +699,11 @@ def hit_in_window(x, y, k_bin, b_bin, window_width=1.0):
     b_bin : float
         Track parameter: y = k_bin * x + b_bin
 
-    Return
-    ------
+    Returns
+    -------
     track_inds : array-like
         Hit indexes of a track: [ind1, ind2, ...]
     """
-
     y_approx = k_bin * x + b_bin
 
     flag = False
@@ -808,18 +714,16 @@ def hit_in_window(x, y, k_bin, b_bin, window_width=1.0):
 
 
 def artificial_retina_pat_rec_single_view(hits, min_hits, proj="y"):
-    """
-    Main function of track pattern recognition.
+    """Perform track pattern recognition in a single view.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     SmearedHits : list
         Smeared hits. SmearedHits = [{'digiHit': key,
                                       'xtop': xtop, 'ytop': ytop, 'z': ztop,
                                       'xbot': xbot, 'ybot': ybot,
                                       'detID': detID}, {...}, ...]
     """
-
     view = 1 if proj == "y" else 0
 
     long_recognized_tracks = []
@@ -898,8 +802,7 @@ def artificial_retina_pat_rec_single_view(hits, min_hits, proj="y"):
 
 
 def reduce_clones_using_one_track_per_hit(recognized_tracks, min_hits=3):
-    """
-    Remove clones.
+    """Remove clones.
 
     Parameters
     ----------
@@ -941,7 +844,7 @@ def reduce_clones_using_one_track_per_hit(recognized_tracks, min_hits=3):
 
 
 def match_segments(tracks):
-    """Attempt to merge segments of tracks split in z"""
+    """Attempt to merge segments of tracks split in z."""
     # TODO use rtrees (inspired by Lardon)
     # rtree nearest neighbours?
     if len(tracks) == 1:
@@ -963,14 +866,13 @@ def match_segments(tracks):
                 long_tracks.append(merged)
         except RuntimeError as e:
             logging.warning(e)
-        # TODO perform merge
 
     # How to deal with multiple options? chi^2?
     return reduce_clones_using_one_track_per_hit(long_tracks, min_hits=5)
 
 
 def main():
-    """Preselect events using second tree with cuts."""
+    """Perform pattern matching."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "-f",
