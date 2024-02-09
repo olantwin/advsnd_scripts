@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import ROOT
 from shipunit import um
+import rootUtils as ut
 
 RESOLUTION = 35 * um
 
@@ -383,9 +384,9 @@ def retina_func(track_prams, x, y, sigma, sample_weight=None):
     x : array-like
         Array of x coordinates of hits.
     y : array-like
-        Array of x coordinates of hits.
+        Array of y coordinates of hits.
     sigma : float
-        Standard deviation of hit form a track.
+        Standard deviation of hit from a track.
     sample_weight : array-like
         Hit weights used during the track fit.
 
@@ -416,9 +417,9 @@ def retina_grad(track_prams, x, y, sigma, sample_weight=None):
     x : array-like
         Array of x coordinates of hits.
     y : array-like
-        Array of x coordinates of hits.
+        Array of y coordinates of hits.
     sigma : float
-        Standard deviation of hit form a track.
+        Standard deviation of hit from a track.
     sample_weight : array-like
         Hit weights used during the track fit.
 
@@ -457,49 +458,15 @@ def hits_split(smeared_hits):
     """
     hits_dict = {
         # view
-        0: {
-            # column
-            0: {
-                # row
-                0: [],
-                1: [],
-                2: [],
-                3: [],
-            },
-            1: {
-                # row
-                0: [],
-                1: [],
-                2: [],
-                3: [],
-            },
-        },
-        1: {
-            # column
-            0: {
-                # row
-                0: [],
-                1: [],
-                2: [],
-                3: [],
-            },
-            1: {
-                # row
-                0: [],
-                1: [],
-                2: [],
-                3: [],
-            },
-        },
+        0: [],
+        1: [],
     }
 
     for hit in smeared_hits:
         det_id = hit["detID"]
         view = (int(det_id >> 14) + 1) % 2
-        column = int(det_id >> 11) % 2
-        row = int(det_id >> 12) % 4
         # split by view
-        hits_dict[view][column][row].append(hit)
+        hits_dict[view].append(hit)
 
     return hits_dict
 
@@ -523,27 +490,16 @@ def artificial_retina_pattern_recognition(hits):
     hits_dict = hits_split(hits)
 
     for view in (0, 1):
-        recognized_tracks[view] = {}
-        for column in (0, 1):
-            recognized_tracks[view][column] = {}
-            for row in (0, 1, 2, 3):
-                hits = hits_dict[view][column][row]
-                if not hits:
-                    recognized_tracks[view][column][row] = []
-                    continue
-                recognized_tracks[view][column][
-                    row
-                ] = artificial_retina_pat_rec_single_view(
-                    hits, min_hits, proj="y" if view else "x"
-                )
+        hits = hits_dict[view]
+        HISTS["hits_y" if view else "hits_x"].Fill(len(hits))
+        recognized_tracks[view] = artificial_retina_pat_rec_single_view(
+            hits, min_hits, proj="y" if view else "x"
+        )
 
-    flat_view_x = []
-    flat_view_y = []
-
-    for column in (0, 1):
-        for row in (0, 1, 2, 3):
-            flat_view_x += recognized_tracks[0][column][row]
-            flat_view_y += recognized_tracks[1][column][row]
+    flat_view_x = recognized_tracks[0]
+    HISTS["track_candidate_x"].Fill(len(flat_view_x))
+    flat_view_y = recognized_tracks[1]
+    HISTS["track_candidate_y"].Fill(len(flat_view_y))
 
     # Combine short tracks
     long_tracks_x = match_segments(flat_view_x)
@@ -871,6 +827,9 @@ def match_segments(tracks):
     return reduce_clones_using_one_track_per_hit(long_tracks, min_hits=5)
 
 
+HISTS = {}
+
+
 def main():
     """Perform pattern matching."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -1009,10 +968,16 @@ def main():
     branch_list = inputfile.BranchList
     branch_list.Add(ROOT.TObjString("track_candidates"))
     outputfile.WriteObject(branch_list, "BranchList")
+    for key in HISTS:
+        HISTS[key].Write()
     outputfile.Write()
 
 
 if __name__ == "__main__":
     ROOT.gROOT.SetBatch(True)
     logging.basicConfig(level=logging.INFO)
+    ut.bookHist(HISTS, "track_candidate_x", "", 100, -1, -1)
+    ut.bookHist(HISTS, "hits_x", "", 100, -1, -1)
+    ut.bookHist(HISTS, "track_candidate_y", "", 100, -1, -1)
+    ut.bookHist(HISTS, "hits_y", "", 100, -1, -1)
     main()
