@@ -484,7 +484,9 @@ def artificial_retina_pat_rec_single_view(hits, min_hits, proj="y"):
     hits_z = np.array([ahit["z"] for ahit in hits])
     hits_p = np.array([(ahit[f"{proj}top"] + ahit[f"{proj}bot"]) / 2 for ahit in hits])
 
+    max_i = 0
     for i in range(len(hits)):
+        max_i = i
         hits_z_unused = hits_z[used_hits == 0]
         hits_p_unused = hits_p[used_hits == 0]
 
@@ -502,6 +504,8 @@ def artificial_retina_pat_rec_single_view(hits, min_hits, proj="y"):
             options={"gtol": 1e-6, "disp": False, "maxiter": 5},
         )
         [k_seed_upd, b_seed_upd] = res.x
+        HISTS[f"fun_{proj}"].Fill(res.fun)
+        HISTS[f"nit_{proj}"].Fill(res.nit)
 
         track = Track2d(
             view=view,
@@ -538,6 +542,11 @@ def artificial_retina_pat_rec_single_view(hits, min_hits, proj="y"):
             used_hits[hit_ids] = 1
         else:
             break
+        HISTS[f"used_stations_{proj}"].Fill(len(used_stations))
+
+    HISTS[f"iterations_{proj}"].Fill(max_i + 1)
+
+    HISTS[f"used_hits_{proj}"].Fill(np.sum(used_hits))
 
     # Remove clones
     recognized_tracks = reduce_clones_using_one_track_per_hit(
@@ -777,6 +786,16 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     ut.bookHist(HISTS, "track_candidate_x", "", 100, -1, -1)
     ut.bookHist(HISTS, "hits_x", "", 100, -1, -1)
+    ut.bookHist(HISTS, "used_hits_x", "", 100, -1, -1)
+    ut.bookHist(HISTS, "used_stations_x", "", 100, -1, -1)
+    ut.bookHist(HISTS, "iterations_x", "", 100, -1, -1)
+    ut.bookHist(HISTS, "fun_x", "", 100, -1, -1)
+    ut.bookHist(HISTS, "nit_x", "", 100, -1, -1)
     ut.bookHist(HISTS, "track_candidate_y", "", 100, -1, -1)
     ut.bookHist(HISTS, "hits_y", "", 100, -1, -1)
+    ut.bookHist(HISTS, "used_hits_y", "", 100, -1, -1)
+    ut.bookHist(HISTS, "used_stations_y", "", 100, -1, -1)
+    ut.bookHist(HISTS, "iterations_y", "", 100, -1, -1)
+    ut.bookHist(HISTS, "fun_y", "", 100, -1, -1)
+    ut.bookHist(HISTS, "nit_y", "", 100, -1, -1)
     main()
