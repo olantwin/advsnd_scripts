@@ -52,7 +52,7 @@ def find_true_vertex(track, event):
     returns TVector3 or None
     """
     track_id = track.getMcTrackId()
-    if track_id >= 0 and track_id < len(event.MCTrack):
+    if 0 <= track_id < len(event.MCTrack):
         mc_track = event.MCTrack[track_id]
         true_vertex = ROOT.TVector3()
         mc_track.GetStartVertex(true_vertex)
