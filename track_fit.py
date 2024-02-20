@@ -11,6 +11,8 @@ from shipunit import um, mm
 
 from pat_rec import Track
 
+import rootUtils as ut
+
 
 def track_fit(track, fitter, strict=False):
     """Fit a single track candidate in 3d (also works for 2d)."""
@@ -148,6 +150,8 @@ def main():
     for event in tqdm(tree, desc="Event loop: ", total=tree.GetEntries()):
         tracks.clear()
         track_id = 0
+        converged_tracks = 0
+        good_tracks = 0
         for track_candidate in event.track_candidates:
             hits = []
             for i in track_candidate:
@@ -166,21 +170,34 @@ def main():
                 hits.append(hit)
             track = Track(hits=hits, track_id=track_id)
             fit_track = track_fit(track, fitter=kalman_fitter)
-            if fit_track and isGood(fit_track):
-                tracks.push_back(fit_track)
-                track_id += 1
+            if fit_track:
+                converged_tracks += 1
+                if isGood(fit_track):
+                    tracks.push_back(fit_track)
+                    track_id += 1
+                    good_tracks += 1
         if display:
             display.addEvent(tracks)
         out_tree.Fill()
+        HISTS["track_candidates"].Fill(len(event.track_candidates))
+        HISTS["converged_tracks"].Fill(converged_tracks)
+        HISTS["good_tracks"].Fill(good_tracks)
     out_tree.Write()
     branch_list = inputfile.BranchList
     branch_list.Add(ROOT.TObjString("genfit_tracks"))
     outputfile.WriteObject(branch_list, "BranchList")
+    for key in HISTS:
+        HISTS[key].Write()
     outputfile.Write()
     if display:
         display.open()
 
 
+HISTS = {}
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
+    ut.bookHist(HISTS, "track_candidates", "", 100, -1, -1)
+    ut.bookHist(HISTS, "converged_tracks", "", 100, -1, -1)
+    ut.bookHist(HISTS, "good_tracks", "", 100, -1, -1)
     main()
