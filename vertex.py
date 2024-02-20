@@ -62,9 +62,8 @@ def main():
 
     for event in tqdm(tree, desc="Event loop: ", total=tree.GetEntries()):
         vertices.clear()
-        if len(event.genfit_tracks) < 2:
-            continue
-        vertex_factory.findVertices(vertices, event.genfit_tracks)
+        if len(event.genfit_tracks) >= 2:
+            vertex_factory.findVertices(vertices, event.genfit_tracks)
         out_tree.Fill()
     out_tree.Write()
     outputfile.Write()
