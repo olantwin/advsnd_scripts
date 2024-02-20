@@ -140,6 +140,10 @@ def main():
 
     outputfile = ROOT.TFile.Open(args.outputfile, "recreate")
     out_tree = tree.CloneTree(0)
+    for key in inputfile.GetListOfKeys():
+        if key.GetClassName() in ["TH1D", "TH2D"]:
+            hist = key.ReadObj()
+            hist.Write()
 
     tracks = ROOT.std.vector("genfit::Track*")()
     out_tree.Branch("genfit_tracks", tracks)

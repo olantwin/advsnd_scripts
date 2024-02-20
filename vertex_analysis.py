@@ -357,6 +357,11 @@ def main():
     h["cutcum"].SetAxisRange(0, 1.05, "Y")
 
     hists = ROOT.TFile.Open(args.outputfile, "recreate")
+    for key in inputfile.GetListOfKeys():
+        if key.GetClassName() in ["TH1D", "TH2D"]:
+            hist = key.ReadObj()
+            hist.Write()
+
     for key, hist in h.items():
         hist.Write()
         if args.plots:

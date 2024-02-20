@@ -54,6 +54,10 @@ def main():
 
     outputfile = ROOT.TFile.Open(args.outputfile, "recreate")
     out_tree = tree.CloneTree(0)
+    for key in inputfile.GetListOfKeys():
+        if key.GetClassName() in ["TH1D", "TH2D"]:
+            hist = key.ReadObj()
+            hist.Write()
 
     vertex_factory = ROOT.genfit.GFRaveVertexFactory(1)
     vertex_factory.setMethod("avr")
