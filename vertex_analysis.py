@@ -60,7 +60,7 @@ def find_true_vertex(track, event):
     return None
 
 
-def IP(track, vertex):
+def impact_parameter(track, vertex):
     """Calculate IP."""
     daughter_start = track.getPos()
     daughter_dir = track.getMom()
@@ -288,7 +288,7 @@ def main():
             point_distances = []
             for i in range(vertex.getNTracks()):
                 track_pars = vertex.getParameters(i)
-                ip = IP(track_pars, pos)
+                ip = impact_parameter(track_pars, pos)
                 h["vertex_ip"].Fill(ip)
                 track = track_pars.getTrack()
                 if track.getMcTrackId() == -1:
@@ -300,7 +300,7 @@ def main():
                     h["vertex_dist_to_points"].Fill(dist)
                 true_vertex = find_true_vertex(track, event)
                 if true_vertex:
-                    true_ip = IP(track_pars, true_vertex)
+                    true_ip = impact_parameter(track_pars, true_vertex)
                     h["vertex_ip_true"].Fill(true_ip)
                     track_id = track.getMcTrackId()
                     mc_track = event.MCTrack[track_id]
