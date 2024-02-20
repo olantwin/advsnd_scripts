@@ -677,6 +677,8 @@ def main():
     out_tree.Branch("track_candidates", track_candidates)
     n = 0
     for event in tqdm(tree, desc="Event loop: ", total=args.nEvents):
+        if n == args.nEvents:
+            break
         stop = ROOT.TVector3()
         start = ROOT.TVector3()
         hits = [
@@ -761,8 +763,6 @@ def main():
         out_tree.Fill()
         track_candidates.clear()
         n += 1
-        if n == args.nEvents:
-            break
     out_tree.Write()
     branch_list = inputfile.BranchList
     branch_list.Add(ROOT.TObjString("track_candidates"))
