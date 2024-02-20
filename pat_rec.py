@@ -111,243 +111,39 @@ def numPlanesHit(detector_ids):
     return len(np.unique(advtarget_stations))
 
 
-def truth_based_pattern_recognition(
-    hits, links, points, max_iterations=100, min_planes_hit=3
-):
-    """Perform simple truth-based pattern recognition (based on SND@LHC tracking)."""
+def truth_based_pattern_recognition(hits, links, points, tracks, min_planes_hit=6):
+    """Use true information to debug/banchmark tracking performance."""
     track_candidates = []
-    # Loop through AdvTarget hits
-    hit_collection = {
-        "pos": [[], [], []],
-        "vert": [],
-        "index": [],
-        "detectorID": [],
-        "B": [[], [], []],
-        "mask": [],
-    }
 
-    truths = []
+    track_dict = {}
+
     link = links[0]
-    for i_hit, hit in enumerate(hits):
-        vert = ((int(hit["detID"] >> 14) + 1) % 2) == 0
 
-        hit_collection["pos"][0].append(hit["xtop"])
-        hit_collection["pos"][1].append(hit["ytop"])
-        hit_collection["pos"][2].append(hit["z"])
+    blacklist = []
 
-        hit_collection["B"][0].append(hit["xbot"])
-        hit_collection["B"][1].append(hit["ybot"])
-        hit_collection["B"][2].append(hit["z"])
-
-        hit_collection["vert"].append(vert)
-
-        hit_collection["index"].append(i_hit)
-
-        hit_collection["detectorID"].append(hit["detID"])
-        hit_collection["mask"].append(False)
-
-        truths.append(link.wList(hit["detID"]))
-
-        truth_array = np.array(truths, dtype=object)
-
-    # Make the hit collection numpy arrays.
-    for key, item in hit_collection.items():
-        if key == "vert":
-            this_dtype = np.bool_
-        elif key == "mask":
-            this_dtype = np.bool_
-        elif key == "index" or key == "detectorID":
-            this_dtype = np.int32
-        elif key != "time":
-            this_dtype = np.float32
-        hit_collection[key] = np.array(item, dtype=this_dtype)
-
-    tracks_tried = []
-
-    skip = 0
-
-    for _ in range(max_iterations):
-        candidate_hit_z = np.concatenate(
-            [
-                hit_collection["pos"][2][hit_collection["vert"]],
-                hit_collection["pos"][2][~hit_collection["vert"]],
-            ]
-        )
-
-        indices_by_z_descending = candidate_hit_z.argsort()[::-1]
-
-        # Find MC Track
-        candidate_hit_truth = np.concatenate(
-            [truth_array[hit_collection["vert"]], truth_array[~hit_collection["vert"]]]
-        )
-        if len(indices_by_z_descending) == skip:
-            logging.info("Skipped all remaining hits.")
-            break
-        wlist = candidate_hit_truth[indices_by_z_descending[skip]]
-        trackIDs = []
-        current_trackID = None
-        current_weight = 0
-        below_threshold = False
+    for hit in hits:
+        det_id = hit["detID"]
+        wlist = link.wList(det_id)
         for i, weight in wlist:
             point = points[i]
-            trackID = point.GetTrackID()
-            if (
-                weight > current_weight
-                and trackID not in tracks_tried
-                and trackID != -2
-            ):
-                # Take track from point with heighest weight
-                current_trackID = trackID
-                current_weight = weight
-            if trackID != -2:
-                trackIDs.append(trackID)
-            else:
-                below_threshold = True
-        assert current_trackID not in tracks_tried
-        if len(np.unique(trackIDs)) > 1 or below_threshold:
-            # Only use isolated hits
-            skip += 1
-            continue
-        if current_trackID is None:
-            skip += 1
-            continue
-        tracks_tried.append(current_trackID)
-        # Filter hits to only those with a point belonging to same track
-        candidate_hit_mask = np.zeros_like(candidate_hit_z, dtype=bool)
-        candidate_hit_mask[indices_by_z_descending[skip]] = True
-        for i in indices_by_z_descending[skip + 1 :]:
-            below_threshold = False
-            wlist = candidate_hit_truth[i]
-            trackIDs = []
-            for j, weight in wlist:
-                point = points[j]
-                trackID = point.GetTrackID()
-                if trackID != -2:
-                    trackIDs.append(trackID)
+            track_id = point.GetTrackID()
+            if track_id == -2:
+                continue
+            if track_id not in track_dict:
+                if track_id >= len(tracks):
+                    blacklist.append(track_id)
+                    continue
+                track = tracks[track_id]
+                if track.GetMotherId() in [0, 1]:
+                    track_dict[track_id] = []
                 else:
-                    below_threshold = True
-            if (
-                current_trackID in trackIDs
-                and len(np.unique(trackIDs)) == 1
-                and not below_threshold
-            ):
-                candidate_hit_mask[i] = True
-                logging.info(f"Found hit for {current_trackID=}.")
-            else:
-                logging.info(f"Discard hit with {trackIDs=}.")
-        logging.info(
-            f"Found {np.sum(candidate_hit_mask)} hits for track {current_trackID}."
-        )
-        candidate_hit_vert = np.concatenate(
-            [
-                hit_collection["vert"][hit_collection["vert"]],
-                hit_collection["vert"][~hit_collection["vert"]],
-            ]
-        )
+                    blacklist.append(track_id)
+            if track_id not in blacklist:
+                track_dict[track_id].append(hit)
 
-        candidate_hit_detid = np.concatenate(
-            [
-                hit_collection["detectorID"][hit_collection["vert"]],
-                hit_collection["detectorID"][~hit_collection["vert"]],
-            ]
-        )
-
-        n_planes_hit_ZX = numPlanesHit(
-            candidate_hit_detid[~candidate_hit_vert & candidate_hit_mask],
-        )
-        n_planes_hit_ZY = numPlanesHit(
-            candidate_hit_detid[candidate_hit_vert & candidate_hit_mask],
-        )
-
-        if n_planes_hit_ZX < min_planes_hit and n_planes_hit_ZY < min_planes_hit:
-            logging.info("Not enough hits for track fit.")
-            skip += 1
-            continue
-
-        # Make track candidate
-        hit_z = np.concatenate(
-            [
-                hit_collection["pos"][2][hit_collection["vert"]],
-                hit_collection["pos"][2][~hit_collection["vert"]],
-            ]
-        )[candidate_hit_mask]
-
-        hit_A0 = np.concatenate(
-            [
-                hit_collection["pos"][0][hit_collection["vert"]],
-                hit_collection["pos"][0][~hit_collection["vert"]],
-            ]
-        )[candidate_hit_mask]
-
-        hit_A1 = np.concatenate(
-            [
-                hit_collection["pos"][1][hit_collection["vert"]],
-                hit_collection["pos"][1][~hit_collection["vert"]],
-            ]
-        )[candidate_hit_mask]
-
-        hit_B0 = np.concatenate(
-            [
-                hit_collection["B"][0][hit_collection["vert"]],
-                hit_collection["B"][0][~hit_collection["vert"]],
-            ]
-        )[candidate_hit_mask]
-
-        hit_B1 = np.concatenate(
-            [
-                hit_collection["B"][1][hit_collection["vert"]],
-                hit_collection["B"][1][~hit_collection["vert"]],
-            ]
-        )[candidate_hit_mask]
-
-        hit_detid = np.concatenate(
-            [
-                hit_collection["detectorID"][hit_collection["vert"]],
-                hit_collection["detectorID"][~hit_collection["vert"]],
-            ]
-        )[candidate_hit_mask]
-
-        hit_index = np.concatenate(
-            [
-                hit_collection["index"][hit_collection["vert"]],
-                hit_collection["index"][~hit_collection["vert"]],
-            ]
-        )[candidate_hit_mask]
-
-        candidate_hits = []
-        for i_z_sorted in hit_z.argsort():
-            candidate_hits.append(
-                {
-                    "digiHit": int(hit_index[i_z_sorted]),
-                    "xtop": hit_A0[i_z_sorted],
-                    "ytop": hit_A1[i_z_sorted],
-                    "z": hit_z[i_z_sorted],
-                    "xbot": hit_B0[i_z_sorted],
-                    "ybot": hit_B1[i_z_sorted],
-                    "detID": hit_detid[i_z_sorted],
-                }
-            )
-
-        track_candidates.append(Track3d(hits=candidate_hits))
-
-        # Remove track hits and try to find an additional track
-        # Find array index to be removed
-        index_to_remove = np.where(np.isin(hit_collection["detectorID"], hit_detid))[0]
-
-        # Remove dictionary entries
-        for key in hit_collection.keys():
-            if len(hit_collection[key].shape) == 1:
-                hit_collection[key] = np.delete(hit_collection[key], index_to_remove)
-            elif len(hit_collection[key].shape) == 2:
-                hit_collection[key] = np.delete(
-                    hit_collection[key], index_to_remove, axis=1
-                )
-            else:
-                raise Exception(
-                    "Wrong number of dimensions found when deleting hits in iterative muon identification algorithm."
-                )
-        truth_array = np.delete(truth_array, index_to_remove)
-        skip = 0
+    for track_id, track_hits in track_dict.items():
+        if len(track_hits) >= min_planes_hit:
+            track_candidates.append(Track3d(hits=track_hits))
 
     return track_candidates
 
@@ -900,7 +696,10 @@ def main():
             artificial_retina_pattern_recognition(hits)
             if not args.truth
             else truth_based_pattern_recognition(
-                hits, event.Digi_TargetClusterHits2MCPoints, event.AdvTargetPoint
+                hits,
+                event.Digi_TargetClusterHits2MCPoints,
+                event.AdvTargetPoint,
+                event.MCTrack,
             )
         )
         ax_xy, ax_xz, ax_zy = None, None, None
