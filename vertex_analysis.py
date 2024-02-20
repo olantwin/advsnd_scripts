@@ -107,9 +107,8 @@ def main():
     ut.bookHist(
         h, "n_vertices_fiducial", "Number of vertices in fiducial volume", 10, -0.5, 9.5
     )
-    # ut.bookHist(h, "n_tracks", "Number of tracks per vertex", 100, 1.5, 102.5)
-    ut.bookHist(h, "n_tracks", "Number of tracks per vertex", 100, -1, -1)
-    ut.bookHist(h, "n_tracks_event", "Number of tracks per event", 100, -1, -1)
+    ut.bookHist(h, "n_tracks", "Number of tracks per vertex", 100, -0.5, 99.5)
+    ut.bookHist(h, "n_tracks_event", "Number of tracks per event", 100, -0.5, 99.5)
     ut.bookHist(
         h,
         "n_tracks_matched_event",
@@ -118,23 +117,23 @@ def main():
         -0.5,
         49.5,
     )
-    ut.bookHist(h, "n_hits_track", "Number of hits per track", 100, -1, -1)
+    ut.bookHist(h, "n_hits_track", "Number of hits per track", 100, -0.5, 99.5)
     ut.bookHist(h, "vertex_ip", "IP wrt. reconstructed vertex; IP [cm]", 100, 0, 1)
     ut.bookHist(
         h,
         "vertex_dist_to_closest_point",
         "Vertex distance to closest hit used for tracking; min(d) [cm]",
         100,
-        -1,
-        -1,
+        0,
+        10,
     )
     ut.bookHist(
         h,
         "vertex_dist_to_points",
         "Vertex distance to hits used for tracking; d [cm]",
         100,
-        -1,
-        -1,
+        0,
+        10,
     )
     ut.bookHist(h, "vertex_ip_true", "IP wrt. true vertex; IP [cm]", 100, 0, 1)
     ut.bookHist(
@@ -144,10 +143,10 @@ def main():
         h,
         "vertex_dxy",
         "Vertex residual; #deltax [cm]; #deltay [cm]",
-        100,
+        1000,
         -10,
         10,
-        100,
+        1000,
         -10,
         10,
     )
@@ -155,50 +154,50 @@ def main():
         h,
         "vertex_dxy_zoom",
         "Vertex residual; #deltax [cm]; #deltay [cm]",
-        20,
+        100,
         -1,
         1,
-        20,
+        100,
         -1,
         1,
     )
     ut.bookHist(h, "vertex_z", "Vertex position; z [cm]", 100, -150, -70)
-    ut.bookHist(h, "vertex_chi2", "Vertex #chi^{2}; #chi^{2}", 100, -1, -1)
-    ut.bookHist(h, "vertex_ndf", "Vertex NDF; NDF", 100, -1, -1)
-    ut.bookHist(h, "vertex_chi2ndf", "Vertex #chi^{2}/NDF; #chi^{2}/NDF", 100, -1, -1)
-    ut.bookHist(h, "vertex_dx", "Vertex residual; #deltax [cm]", 100, -1, 1)
-    ut.bookHist(h, "vertex_dy", "Vertex residual; #deltay [cm]", 100, -1, 1)
-    ut.bookHist(h, "vertex_dz", "Vertex residual; #deltaz [cm]", 100, -10, -10)
-    ut.bookHist(h, "vertex_dz_zoom", "Vertex residual; #deltaz [cm]", 20, -1, 1)
+    ut.bookHist(h, "vertex_chi2", "Vertex #chi^{2}; #chi^{2}", 100, 0, 100)
+    ut.bookHist(h, "vertex_ndf", "Vertex NDF; NDF", 100, -0.5, 99.5)
+    ut.bookHist(h, "vertex_chi2ndf", "Vertex #chi^{2}/NDF; #chi^{2}/NDF", 100, 0, 10)
+    ut.bookHist(h, "vertex_dx", "Vertex residual; #deltax [cm]", 100, -0.1, 0.1)
+    ut.bookHist(h, "vertex_dy", "Vertex residual; #deltay [cm]", 100, -0.1, 0.1)
+    ut.bookHist(h, "vertex_dz", "Vertex residual; #deltaz [cm]", 100, -1, 1)
+    ut.bookHist(h, "vertex_dz_zoom", "Vertex residual; #deltaz [cm]", 100, -0.1, 0.1)
 
     ut.bookHist(
         h,
         "vertex_matched_dx",
         "Vertex residual (truth matched); #deltax [cm]",
         100,
-        -1,
-        1,
+        -0.1,
+        0.1,
     )
     ut.bookHist(
         h,
         "vertex_matched_dy",
         "Vertex residual (truth matched); #deltay [cm]",
         100,
-        -1,
-        1,
+        -0.1,
+        0.1,
     )
     ut.bookHist(
         h,
         "vertex_matched_dz",
         "Vertex residual (truth matched); #deltaz [cm]",
         100,
-        -10,
-        -10,
+        -1,
+        1,
     )
     ut.bookHist(
         h,
         "vertex_track_true_momentum",
-        "True momentum of truth matched track for truth matched vertex; P [GeV]",
+        "True momentum of truth matched track for truth matched vertex; P [GeV/c]",
         100,
         -1,
         -1,
