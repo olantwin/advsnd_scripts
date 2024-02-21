@@ -159,7 +159,7 @@ def main():
         for track_candidate in event.track_candidates:
             hits = []
             for i in track_candidate:
-                digi_hit = event.Digi_advTargetClusters[i]
+                digi_hit = event.Digi_advTargetHits[i]
                 hit = ROOT.Hit()
                 hit.det_id = digi_hit.GetDetectorID()
                 stop = ROOT.TVector3()
