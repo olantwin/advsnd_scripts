@@ -59,8 +59,8 @@ def main():
             hist = key.ReadObj()
             hist.Write()
 
-    vertex_factory = ROOT.genfit.GFRaveVertexFactory(1)
-    vertex_factory.setMethod("avr")
+    vertex_factory = ROOT.genfit.GFRaveVertexFactory()
+    vertex_factory.setMethod("avr-smoothing:1")
     vertices = ROOT.std.vector("genfit::GFRaveVertex*")()
     out_tree.Branch("RAVE_vertices", vertices)
 
