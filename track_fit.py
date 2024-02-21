@@ -201,7 +201,7 @@ HISTS = {}
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    ut.bookHist(HISTS, "track_candidates", "", 100, -1, -1)
-    ut.bookHist(HISTS, "converged_tracks", "", 100, -1, -1)
-    ut.bookHist(HISTS, "good_tracks", "", 100, -1, -1)
+    ut.bookHist(HISTS, "track_candidates", "", 100, -0.5, 99.5)
+    ut.bookHist(HISTS, "converged_tracks", "", 100, -0.5, 99.5)
+    ut.bookHist(HISTS, "good_tracks", "", 100, -0.5, -99.5)
     main()
