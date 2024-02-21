@@ -11,7 +11,7 @@ from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import ROOT
-from shipunit import um
+from shipunit import um, GeV
 import rootUtils as ut
 
 RESOLUTION = 35 * um
@@ -111,7 +111,15 @@ def numPlanesHit(detector_ids):
     return len(np.unique(advtarget_stations))
 
 
-def truth_based_pattern_recognition(hits, links, points, tracks, min_planes_hit=6):
+def truth_based_pattern_recognition(
+    hits,
+    links,
+    points,
+    tracks,
+    min_planes_hit=6,
+    momentum_cut=None,
+    n_longest_tracks=None,
+):
     """Use true information to debug/banchmark tracking performance."""
     track_candidates = []
 
@@ -141,9 +149,24 @@ def truth_based_pattern_recognition(hits, links, points, tracks, min_planes_hit=
             if track_id not in blacklist:
                 track_dict[track_id].append(hit)
 
+    # optionally, apply momentum cut
+    if momentum_cut:
+        tracks_below_threshold = []
+        for track_id in track_dict.keys():
+            if tracks[track_id].GetP() < momentum_cut:
+                tracks_below_threshold.append(track_id)
+        for track_id in tracks_below_threshold:
+            del track_dict[track_id]
+
     for track_id, track_hits in track_dict.items():
         if len(track_hits) >= min_planes_hit:
             track_candidates.append(Track3d(hits=track_hits))
+
+    # optionally, select n longest tracks
+    if n_longest_tracks:
+        track_candidates = sorted(
+            track_candidates, key=lambda cand: len(cand.hits), reverse=True
+        )[:n_longest_tracks]
 
     return track_candidates
 
@@ -700,7 +723,7 @@ def main():
                 "ybot": start.y(),
                 "detID": hit.GetDetectorID(),
             }
-            for i, hit in enumerate(event.Digi_advTargetClusters)
+            for i, hit in enumerate(event.Digi_advTargetHits)
             if (_ := hit.GetPosition(stop, start), True) and hit.GetSignal() > 0.0001
         ]
         recognized_tracks = (
@@ -708,9 +731,11 @@ def main():
             if not args.truth
             else truth_based_pattern_recognition(
                 hits,
-                event.Digi_TargetClusterHits2MCPoints,
+                event.Digi_TargetHits2MCPoints,
                 event.AdvTargetPoint,
                 event.MCTrack,
+                momentum_cut=100 * GeV,
+                n_longest_tracks=3,
             )
         )
         ax_xy, ax_xz, ax_zy = None, None, None
