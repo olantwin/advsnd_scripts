@@ -258,16 +258,12 @@ def main():
         n_good_vertices = 0
         for vertex in event.RAVE_vertices:
             chi2 = vertex.getChi2()
-            if not (0 < chi2 < 1000):
-                continue
             h["vertex_chi2"].Fill(chi2)
             ndf = vertex.getNdf()
-            if not (0 < ndf):
-                continue
             h["vertex_ndf"].Fill(ndf)
-            if (chi2 / ndf) > 1:
-                continue
             h["vertex_chi2ndf"].Fill(chi2 / ndf)
+            if (chi2 / ndf) > 20:
+                continue
             n_good_vertices += 1
             pos = vertex.getPos()
             # Fiducial cut
